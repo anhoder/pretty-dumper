@@ -11,10 +11,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Renderer\WebRenderer;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Renderer\WebRenderer;
 
 // 模拟 API 响应数据
 $apiResponses = [

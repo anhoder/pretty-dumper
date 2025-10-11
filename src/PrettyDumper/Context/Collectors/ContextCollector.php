@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Context\Collectors;
+namespace Anhoder\PrettyDumper\Context\Collectors;
 
-use PrettyDumper\Context\ContextFrame;
-use PrettyDumper\Context\ContextSnapshot;
-use PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Context\ContextSnapshot;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
 
 interface ContextCollector
 {

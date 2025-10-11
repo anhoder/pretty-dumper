@@ -1,8 +1,7 @@
 {
-  "name": "pretty/dumper",
-  "description": "Multi-channel debugging output tools for CLI and web",
+  "name": "anhoder/pretty-dumper",
+  "description": "PHP debugging output dumper tools for CLI and web",
   "type": "library",
-  "license": "proprietary",
   "require": {
     "php": "^8.0"
   },
@@ -12,7 +11,7 @@
   },
   "autoload": {
     "psr-4": {
-      "PrettyDumper\\": "src/PrettyDumper/"
+      "Anhoder\\PrettyDumper\\": "src/PrettyDumper/"
     },
     "files": [
       "src/helpers.php"
@@ -20,11 +19,8 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "PrettyDumper\\Tests\\": "tests/"
-    },
-    "files": [
-      "tests/pest-test-suite-loader.php"
-    ]
+      "Anhoder\\PrettyDumper\\Tests\\": "tests/"
+    }
   },
   "scripts": {
     "test": "vendor/bin/pest",

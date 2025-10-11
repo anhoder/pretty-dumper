@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Renderer\CliRenderer;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Renderer\CliRenderer;
 
 it('matches the expected snapshot for nested exceptions', function (): void {
     $inner = new InvalidArgumentException('Database pool exhausted');

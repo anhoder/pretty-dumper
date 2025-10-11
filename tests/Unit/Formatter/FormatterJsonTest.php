@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\RenderedSegment;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\RenderedSegment;
 
 it('formats scalar values with type annotations', function (): void {
     $formatter = PrettyFormatter::forChannel('cli', new FormatterConfiguration());

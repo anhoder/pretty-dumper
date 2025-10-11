@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Formatter;
+namespace Anhoder\PrettyDumper\Formatter;
 
-use PrettyDumper\Context\RedactionRule;
+use Anhoder\PrettyDumper\Context\RedactionRule;
 
 final class FormatterConfiguration
 {

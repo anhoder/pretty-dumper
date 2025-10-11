@@ -5,11 +5,11 @@ Pretty Dumper 提供 CLI 与 Web 渲染两种渠道，用于在调试时输出�
 ## 安装
 
 ```bash
-composer require pretty/dumper --dev
+composer require anhoder/pretty-dumper --dev
 ```
 
 - 安装完成后可直接使用 `vendor/bin/pretty-dump` 命令。
-- Web 端静态资源位于 `vendor/pretty/dumper/public/assets/`，包含 CSS 与最小化的主题切换脚本。
+- Web 端静态资源位于 `vendor/anhoder/pretty-dumper/public/assets/`，包含 CSS 与最小化的主题切换脚本。
 
 ## CLI 使用示例
 
@@ -41,11 +41,11 @@ pretty-dump --file=bootstrap/cache/inspect.php --depth=6
 ## Web 嵌入示例
 
 ```php
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Renderer\WebRenderer;
-use PrettyDumper\Support\ThemeRegistry;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Renderer\WebRenderer;
+use Anhoder\PrettyDumper\Support\ThemeRegistry;
 
 $formatter = PrettyFormatter::forChannel('web', new FormatterConfiguration());
 $renderer = new WebRenderer($formatter, ThemeRegistry::withDefaults());
@@ -68,7 +68,7 @@ echo $renderer->render($request);
 ```php
 // config/app.php
 'providers' => [
-    PrettyDumper\Support\Frameworks\LaravelServiceProvider::class,
+    Anhoder\PrettyDumper\Support\Frameworks\LaravelServiceProvider::class,
 ],
 ```
 
@@ -80,7 +80,7 @@ echo $renderer->render($request);
 ```php
 // config/bundles.php
 return [
-    PrettyDumper\Support\Frameworks\SymfonyBundle::class => ['all' => true],
+    Anhoder\PrettyDumper\Support\Frameworks\SymfonyBundle::class => ['all' => true],
 ];
 ```
 

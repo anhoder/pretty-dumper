@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Renderer\WebRenderer;
-use PrettyDumper\Support\ThemeRegistry;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Renderer\WebRenderer;
+use Anhoder\PrettyDumper\Support\ThemeRegistry;
 
 it('renders details summary structure for no js environments', function (): void {
     $registry = ThemeRegistry::withDefaults();

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Formatter\Transformers;
+namespace Anhoder\PrettyDumper\Formatter\Transformers;
 
-use PrettyDumper\Context\RedactionRule;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Formatter\RenderedSegment;
+use Anhoder\PrettyDumper\Context\RedactionRule;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Formatter\RenderedSegment;
 use Throwable;
 
 final class ExceptionTransformer

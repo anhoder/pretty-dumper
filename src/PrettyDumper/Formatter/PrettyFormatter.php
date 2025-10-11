@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Formatter;
+namespace Anhoder\PrettyDumper\Formatter;
 
-use PrettyDumper\Context\Collectors\ContextCollector;
-use PrettyDumper\Context\Collectors\DefaultContextCollector;
-use PrettyDumper\Context\ContextFrame;
-use PrettyDumper\Context\ContextSnapshot;
-use PrettyDumper\Context\RedactionRule;
-use PrettyDumper\Formatter\Support\PerformanceMonitor;
-use PrettyDumper\Formatter\Transformers\ExceptionTransformer;
-use PrettyDumper\Formatter\Transformers\JsonTransformer;
-use PrettyDumper\Support\ThemeRegistry;
+use Anhoder\PrettyDumper\Context\Collectors\ContextCollector;
+use Anhoder\PrettyDumper\Context\Collectors\DefaultContextCollector;
+use Anhoder\PrettyDumper\Context\ContextFrame;
+use Anhoder\PrettyDumper\Context\ContextSnapshot;
+use Anhoder\PrettyDumper\Context\RedactionRule;
+use Anhoder\PrettyDumper\Formatter\Support\PerformanceMonitor;
+use Anhoder\PrettyDumper\Formatter\Transformers\ExceptionTransformer;
+use Anhoder\PrettyDumper\Formatter\Transformers\JsonTransformer;
+use Anhoder\PrettyDumper\Support\ThemeRegistry;
 use Throwable;
 
 final class PrettyFormatter

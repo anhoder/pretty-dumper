@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Support;
+namespace Anhoder\PrettyDumper\Support;
 
 use InvalidArgumentException;
 

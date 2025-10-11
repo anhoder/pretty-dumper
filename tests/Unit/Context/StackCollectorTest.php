@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use PrettyDumper\Context\Collectors\ContextCollector;
-use PrettyDumper\Context\Collectors\DefaultContextCollector;
-use PrettyDumper\Context\ContextFrame;
-use PrettyDumper\Context\ContextSnapshot;
-use PrettyDumper\Context\RedactionRule;
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Context\Collectors\ContextCollector;
+use Anhoder\PrettyDumper\Context\Collectors\DefaultContextCollector;
+use Anhoder\PrettyDumper\Context\ContextFrame;
+use Anhoder\PrettyDumper\Context\ContextSnapshot;
+use Anhoder\PrettyDumper\Context\RedactionRule;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
 use PHPUnit\Framework\Attributes\Override;
 
 class FakeCollector implements ContextCollector

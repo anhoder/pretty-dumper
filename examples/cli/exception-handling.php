@@ -10,10 +10,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Renderer\CliRenderer;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Renderer\CliRenderer;
 
 echo "=== PrettyDumper 异常处理示例 ===\n\n";
 

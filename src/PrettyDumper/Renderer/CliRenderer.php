@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Renderer;
+namespace Anhoder\PrettyDumper\Renderer;
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\RenderedSegment;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\RenderedSegment;
 
 final class CliRenderer
 {

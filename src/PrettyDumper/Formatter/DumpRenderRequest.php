@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Formatter;
+namespace Anhoder\PrettyDumper\Formatter;
 
 use InvalidArgumentException;
-use PrettyDumper\Context\ContextSnapshot;
+use Anhoder\PrettyDumper\Context\ContextSnapshot;
 
 final class DumpRenderRequest
 {

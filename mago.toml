@@ -3,7 +3,6 @@
 [source]
 paths = ["src"]
 excludes = [
-    "src/autoload/pest-test-suite-loader.php",
     "src/PrettyDumper/Support/Frameworks/SymfonyBundle.php",
     "src/PrettyDumper/Support/Frameworks/LaravelServiceProvider.php",
 ]
@@ -56,4 +55,7 @@ enabled = false
 enabled = false
 
 [linter.rules."interface-name"]
+enabled = false
+
+[linter.rules."no-shorthand-ternary"]
 enabled = false

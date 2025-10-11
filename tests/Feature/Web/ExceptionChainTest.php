@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Renderer\WebRenderer;
-use PrettyDumper\Support\ThemeRegistry;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Renderer\WebRenderer;
+use Anhoder\PrettyDumper\Support\ThemeRegistry;
 
 it('renders exception chain with collapsible details', function (): void {
     $inner = new InvalidArgumentException('Invalid email address provided.');

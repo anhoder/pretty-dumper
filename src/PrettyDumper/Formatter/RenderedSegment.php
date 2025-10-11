@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Formatter;
+namespace Anhoder\PrettyDumper\Formatter;
 
 final class RenderedSegment
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Context;
+namespace Anhoder\PrettyDumper\Context;
 
 final class ContextSnapshot
 {

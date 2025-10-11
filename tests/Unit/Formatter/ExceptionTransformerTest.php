@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
-use PrettyDumper\Context\ContextSnapshot;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Formatter\Transformers\ExceptionTransformer;
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\RenderedSegment;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\RenderedSegment;
 
 beforeEach(function (): void {
     $this->formatter = PrettyFormatter::forChannel('cli', new FormatterConfiguration([

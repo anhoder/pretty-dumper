@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Formatter\Support;
+namespace Anhoder\PrettyDumper\Formatter\Support;
 
 final class PerformanceMonitor
 {

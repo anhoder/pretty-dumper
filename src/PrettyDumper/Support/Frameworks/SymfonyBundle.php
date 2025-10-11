@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Support\Frameworks;
+namespace Anhoder\PrettyDumper\Support\Frameworks;
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Renderer\CliRenderer;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Renderer\CliRenderer;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\Bundle;

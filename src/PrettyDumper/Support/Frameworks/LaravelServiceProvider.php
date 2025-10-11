@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace PrettyDumper\Support\Frameworks;
+namespace Anhoder\PrettyDumper\Support\Frameworks;
 
 use Illuminate\Contracts\Container\Container;
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Renderer\CliRenderer;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Renderer\CliRenderer;
 
 if (class_exists(\Illuminate\Support\ServiceProvider::class)) {
     class LaravelServiceProvider extends \Illuminate\Support\ServiceProvider

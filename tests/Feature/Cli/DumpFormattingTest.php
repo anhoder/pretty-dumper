@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use PrettyDumper\Formatter\DumpRenderRequest;
-use PrettyDumper\Formatter\FormatterConfiguration;
-use PrettyDumper\Formatter\PrettyFormatter;
-use PrettyDumper\Renderer\CliRenderer;
+use Anhoder\PrettyDumper\Formatter\DumpRenderRequest;
+use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
+use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
+use Anhoder\PrettyDumper\Renderer\CliRenderer;
 
 it('renders nested arrays with indentation and ansi styling', function (): void {
     $formatter = PrettyFormatter::forChannel('cli', new FormatterConfiguration([
