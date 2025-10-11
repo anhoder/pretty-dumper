@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use PrettyDumper\Context\Collectors\ContextCollector;
+use PrettyDumper\Context\Collectors\DefaultContextCollector;
 use PrettyDumper\Context\ContextFrame;
 use PrettyDumper\Context\ContextSnapshot;
 use PrettyDumper\Context\RedactionRule;
@@ -29,6 +30,24 @@ class FakeCollector implements ContextCollector
             request: ['password' => 'super-secret'],
             env: ['API_KEY' => 'abcd-1234'],
         );
+    }
+}
+
+class RecordingCollector implements ContextCollector
+{
+    public ?ContextSnapshot $snapshot = null;
+
+    public function __construct(private DefaultContextCollector $inner)
+    {
+    }
+
+    #[Override]
+    public function collect(DumpRenderRequest $request): ContextSnapshot
+    {
+        $snapshot = $this->inner->collect($request);
+        $this->snapshot = $snapshot;
+
+        return $snapshot;
     }
 }
 
@@ -92,4 +111,27 @@ it('limits stack depth based on configuration', function (): void {
         ->toHaveKey('truncatedStack')
         ->and($contextSegment->metadata()['truncatedStack'])
         ->toBeTrue();
+});
+
+it('filters internal pretty dumper frames from context stack', function (): void {
+    $collector = new RecordingCollector(new DefaultContextCollector());
+    $configuration = new FormatterConfiguration();
+    $formatter = PrettyFormatter::forChannel('cli', $configuration, $collector);
+    $request = new DumpRenderRequest(['foo' => 'bar'], 'cli');
+
+    $formatter->format($request);
+
+    $snapshot = $collector->snapshot;
+    expect($snapshot)->not->toBeNull();
+
+    $originFile = str_replace('\\', '/', $snapshot->origin()['file']);
+    expect($originFile)->not->toContain('/src/PrettyDumper/');
+
+    $stack = $snapshot->stack();
+    expect($stack)->not->toBeEmpty();
+
+    foreach ($stack as $frame) {
+        $normalized = str_replace('\\', '/', $frame->file());
+        expect($normalized)->not->toContain('/src/PrettyDumper/');
+    }
 });

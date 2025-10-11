@@ -23,7 +23,7 @@
       "PrettyDumper\\Tests\\": "tests/"
     },
     "files": [
-      "src/autoload/pest-test-suite-loader.php"
+      "tests/pest-test-suite-loader.php"
     ]
   },
   "scripts": {
