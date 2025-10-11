@@ -21,7 +21,7 @@ final class DefaultContextCollector implements ContextCollector
                 continue;
             }
 
-            $file = isset($frame['file']) ? $frame['file'] : 'unknown';
+            $file = $frame['file'] ?? 'unknown';
             $line = isset($frame['line']) ? (int) $frame['line'] : 0;
             $function = $frame['function'] !== '' ? $frame['function'] : null;
 

@@ -69,7 +69,7 @@ final class FormatterConfiguration
         $this->redactionRules = $redactionRules !== [] ? $redactionRules : $defaultRules;
 
         $this->extras = $overrides;
-        $this->extras['showTableVariableMeta'] = self::readBool($overrides, 'showTableVariableMeta', false);
+        $this->extras['showTableVariableMeta'] = self::readBool($overrides, 'showTableVariableMeta', true);
     }
 
     public function maxDepth(): int
@@ -132,7 +132,7 @@ final class FormatterConfiguration
 
     public function showTableVariableMeta(): bool
     {
-        return (bool) ($this->extras['showTableVariableMeta'] ?? false);
+        return (bool) ($this->extras['showTableVariableMeta'] ?? true);
     }
 
     public function indentStyle(): string

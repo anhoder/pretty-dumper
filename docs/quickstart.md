@@ -22,11 +22,21 @@ pretty-dump --format=json 'json_encode(["id" => 42, "role" => "admin"])'
 
 # 禁用颜色（非 TTY 环境或日志场景）
 pretty-dump --no-color --theme=dark "App\\Services\\Report::class"
+
+# 从 STDIN 读取 JSON 并自动解析
+echo '{"ok":true}' | pretty-dump --stdin --from=json --format=json
+
+# 让 CLI 直接执行返回值文件
+pretty-dump --file=bootstrap/cache/inspect.php --depth=6
 ```
 
 - `--depth` 控制对象展开深度，默认为 5。
 - `--format=json` 会启用 JSON 自动折叠，并在 CLI 中提供截断提示。
-- `--no-color` 或非 TTY 流情况下，渲染器会退化为纯文本输出但保留结构。
+- `--stdin` / `--file=PATH` 允许从标准输入或指定 PHP 文件加载数据，默认使用 `--from=php` 执行表达式或返回值。
+- `--from=php|json|raw|serialized` 控制输入解析方式，结合 `--stdin` 可快速调试 JSON、序列化或纯文本数据。
+- `--context` / `--context-file` 接受 JSON，上下文会注入 `DumpRenderRequest` 以复现请求、环境或变量快照。
+- `--max-items`、`--string-limit`、`--indent-style` 等高级参数可覆盖 `FormatterConfiguration`，配合 `--show-meta` / `--no-meta`、`--show-context` / `--no-context` 定制输出细节。
+- `--no-color` 或非 TTY 流情况下，渲染器会退化为纯文本输出但保留结构；`--color` 可强制启用 ANSI 颜色。
 
 ## Web 嵌入示例
 

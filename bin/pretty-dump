@@ -14,66 +14,759 @@ const EXIT_SUCCESS = 0;
 const EXIT_PARSE_ERROR = 2;
 const EXIT_RUNTIME_ERROR = 3;
 
-$options = getopt('', ['format:', 'depth:', 'theme:', 'no-color', 'help']);
+$definitions = optionDefinitions();
 
-if (isset($options['help'])) {
-    fwrite(STDOUT, "Usage: pretty-dump [options] <expression>\n");
+try {
+    $parsed = parseArguments($argv, $definitions);
+} catch (InvalidArgumentException $error) {
+    fwrite(STDERR, 'ERROR: ' . $error->getMessage() . PHP_EOL);
+    exit(EXIT_PARSE_ERROR);
+}
+
+$options = $parsed['options'];
+$operands = $parsed['operands'];
+
+if (hasOption($options, 'help')) {
+    $colorPreference = resolveColorPreference($options);
+    $useColor = $colorPreference ?? detectTty();
+
+    fwrite(STDOUT, renderHelpText($useColor));
     exit(EXIT_SUCCESS);
 }
 
-$args = array_values(array_diff($argv, array_filter($argv, static fn ($arg) => str_starts_with($arg, '--'))));
-
-if (count($args) < 2) {
-    fwrite(STDERR, "ERROR: Missing expression to dump.\n");
+try {
+    $inputFormat = resolveInputFormat($options);
+    $renderFormat = resolveRenderFormat($options);
+    $input = resolveInput($options, $operands);
+    $configOverrides = buildConfigurationOverrides($options, $renderFormat);
+    $requestOptions = buildRequestOptions($options, $input, $renderFormat);
+} catch (InvalidArgumentException $error) {
+    fwrite(STDERR, 'ERROR: ' . $error->getMessage() . PHP_EOL);
     exit(EXIT_PARSE_ERROR);
 }
-
-$expression = $args[count($args) - 1];
 
 try {
-    $payload = eval('return ' . $expression . ';');
+    $payload = interpretPayload($input, $inputFormat);
 } catch (ParseError $error) {
-    fwrite(STDERR, 'ERROR: Unable to parse expression: ' . $error->getMessage() . "\n");
+    fwrite(STDERR, 'ERROR: Unable to parse expression: ' . $error->getMessage() . PHP_EOL);
     exit(EXIT_PARSE_ERROR);
 } catch (Throwable $error) {
-    fwrite(STDERR, 'ERROR: Exception thrown while evaluating expression: ' . $error->getMessage() . "\n");
+    fwrite(STDERR, 'ERROR: Exception thrown while evaluating expression: ' . $error->getMessage() . PHP_EOL);
     exit(EXIT_RUNTIME_ERROR);
-}
-
-$configOverrides = [];
-
-if (isset($options['depth'])) {
-    $configOverrides['maxDepth'] = (int) $options['depth'];
-}
-
-if (isset($options['theme'])) {
-    $configOverrides['theme'] = $options['theme'];
-}
-
-if (($options['format'] ?? 'text') === 'json') {
-    $configOverrides['autoDetectJson'] = true;
 }
 
 $configuration = new FormatterConfiguration($configOverrides);
 $formatter = PrettyFormatter::forChannel('cli', $configuration);
-$renderer = new CliRenderer($formatter);
-
-$requestOptions = [];
-if (isset($options['no-color'])) {
-    $requestOptions['color'] = false;
-}
-
-if (isset($options['theme'])) {
-    $requestOptions['theme'] = $options['theme'];
-}
-
+$renderer = new CliRenderer($formatter, detectTty());
 $request = new DumpRenderRequest($payload, 'cli', $requestOptions);
 
 try {
-    $output = $renderer->render($request, ['color' => !isset($options['no-color'])]);
-    fwrite(STDOUT, $output . "\n");
-    exit(EXIT_SUCCESS);
+    $output = $renderer->render($request);
 } catch (Throwable $error) {
-    fwrite(STDERR, 'ERROR: Failed to render dump: ' . $error->getMessage() . "\n");
+    fwrite(STDERR, 'ERROR: Failed to render dump: ' . $error->getMessage() . PHP_EOL);
     exit(EXIT_RUNTIME_ERROR);
+}
+
+fwrite(STDOUT, $output . PHP_EOL);
+exit(EXIT_SUCCESS);
+
+/**
+ * @return array<string, string>
+ */
+function optionDefinitions(): array
+{
+    return [
+        'help' => 'flag',
+        'format' => 'required',
+        'depth' => 'required',
+        'theme' => 'required',
+        'color' => 'flag',
+        'no-color' => 'flag',
+        'stdin' => 'flag',
+        'file' => 'required',
+        'from' => 'required',
+        'max-items' => 'required',
+        'max-hard-limit' => 'required',
+        'string-limit' => 'required',
+        'expand-exceptions' => 'flag',
+        'show-context' => 'flag',
+        'no-context' => 'flag',
+        'stack-limit' => 'required',
+        'message-limit' => 'required',
+        'indent-style' => 'required',
+        'indent-size' => 'required',
+        'show-meta' => 'flag',
+        'no-meta' => 'flag',
+        'context' => 'required',
+        'context-file' => 'required',
+        'expression-label' => 'required',
+    ];
+}
+
+/**
+ * @param array<int, string> $argv
+ * @param array<string, string> $definitions
+ * @return array{options: array<string, list<string|true>>, operands: list<string>}
+ */
+function parseArguments(array $argv, array $definitions): array
+{
+    $tokens = $argv;
+    array_shift($tokens);
+
+    $options = [];
+    $operands = [];
+    $count = count($tokens);
+
+    for ($index = 0; $index < $count; $index++) {
+        $token = $tokens[$index];
+
+        if ($token === '--') {
+            for ($j = $index + 1; $j < $count; $j++) {
+                $operands[] = $tokens[$j];
+            }
+
+            break;
+        }
+
+        if (!str_starts_with($token, '--')) {
+            $operands[] = $token;
+            continue;
+        }
+
+        $option = substr($token, 2);
+
+        if ($option === '') {
+            $operands[] = $token;
+            continue;
+        }
+
+        $value = true;
+        $delimiterPosition = strpos($option, '=');
+
+        if ($delimiterPosition !== false) {
+            $value = substr($option, $delimiterPosition + 1);
+            $option = substr($option, 0, $delimiterPosition);
+        } else {
+            $mode = $definitions[$option] ?? null;
+
+            if ($mode === null) {
+                throw new InvalidArgumentException(sprintf('Unknown option "--%s".', $option));
+            }
+
+            if ($mode === 'required' || $mode === 'optional') {
+                $next = $tokens[$index + 1] ?? null;
+
+                if ($next !== null && !str_starts_with($next, '--')) {
+                    $value = $next;
+                    $index++;
+                } elseif ($mode === 'required') {
+                    throw new InvalidArgumentException(sprintf('Option "--%s" expects a value.', $option));
+                }
+            }
+        }
+
+        if (!array_key_exists($option, $definitions)) {
+            throw new InvalidArgumentException(sprintf('Unknown option "--%s".', $option));
+        }
+
+        $options[$option] ??= [];
+        $options[$option][] = $value;
+    }
+
+    return [
+        'options' => $options,
+        'operands' => $operands,
+    ];
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ */
+function hasOption(array $options, string $name): bool
+{
+    return array_key_exists($name, $options);
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ */
+function resolveInputFormat(array $options): string
+{
+    $format = strtolower(readStringOption($options, 'from') ?? 'php');
+    $format = $format !== '' ? $format : 'php';
+
+    $allowed = ['php', 'json', 'raw', 'serialized'];
+
+    if (!in_array($format, $allowed, true)) {
+        throw new InvalidArgumentException(sprintf('Unsupported input format "%s".', $format));
+    }
+
+    return $format;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ */
+function resolveRenderFormat(array $options): string
+{
+    $format = strtolower(readStringOption($options, 'format') ?? 'text');
+    $format = $format !== '' ? $format : 'text';
+
+    if (!in_array($format, ['text', 'json'], true)) {
+        throw new InvalidArgumentException(sprintf('Unsupported render format "%s".', $format));
+    }
+
+    return $format;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ * @param list<string> $operands
+ * @return array{mode: 'expression'|'stdin'|'file', label: string, content?: string, path?: string}
+ */
+function resolveInput(array $options, array $operands): array
+{
+    $filePath = readStringOption($options, 'file');
+    $stdinOption = readBooleanOption($options, 'stdin');
+    $useStdin = $stdinOption ?? false;
+
+    $sources = 0;
+
+    if ($filePath !== null) {
+        $sources++;
+    }
+
+    if ($useStdin) {
+        $sources++;
+    }
+
+    if ($operands !== []) {
+        $sources++;
+    }
+
+    if ($sources === 0) {
+        throw new InvalidArgumentException('Missing expression to dump.');
+    }
+
+    if ($sources > 1) {
+        throw new InvalidArgumentException('Please specify only one input source (expression, --stdin, or --file).');
+    }
+
+    if ($filePath !== null) {
+        if (!is_file($filePath)) {
+            throw new InvalidArgumentException(sprintf('File "%s" does not exist.', $filePath));
+        }
+
+        $realPath = realpath($filePath);
+        $path = $realPath !== false ? $realPath : $filePath;
+
+        return [
+            'mode' => 'file',
+            'path' => $path,
+            'label' => $path,
+        ];
+    }
+
+    if ($useStdin) {
+        $content = stream_get_contents(STDIN);
+
+        if ($content === false) {
+            throw new InvalidArgumentException('Failed to read from STDIN.');
+        }
+
+        if ($content === '') {
+            throw new InvalidArgumentException('STDIN did not provide any content.');
+        }
+
+        return [
+            'mode' => 'stdin',
+            'content' => $content,
+            'label' => 'STDIN',
+        ];
+    }
+
+    $expression = trim(implode(' ', $operands));
+
+    if ($expression === '') {
+        throw new InvalidArgumentException('Missing expression to dump.');
+    }
+
+    return [
+        'mode' => 'expression',
+        'content' => $expression,
+        'label' => $expression,
+    ];
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ * @return array<string, mixed>
+ */
+function buildConfigurationOverrides(array $options, string $renderFormat): array
+{
+    $overrides = [];
+
+    $depth = readPositiveIntOption($options, 'depth');
+
+    if ($depth !== null) {
+        $overrides['maxDepth'] = $depth;
+    }
+
+    $maxItems = readPositiveIntOption($options, 'max-items');
+
+    if ($maxItems !== null) {
+        $overrides['maxItems'] = $maxItems;
+    }
+
+    $maxHardLimit = readPositiveIntOption($options, 'max-hard-limit');
+
+    if ($maxHardLimit !== null) {
+        $overrides['maxItemsHardLimit'] = $maxHardLimit;
+    }
+
+    $stringLimit = readPositiveIntOption($options, 'string-limit');
+
+    if ($stringLimit !== null) {
+        $overrides['stringLengthLimit'] = $stringLimit;
+    }
+
+    $expandExceptions = readBooleanOption($options, 'expand-exceptions');
+
+    if ($expandExceptions !== null) {
+        $overrides['expandExceptions'] = $expandExceptions;
+    }
+
+    if (hasOption($options, 'show-context')) {
+        $overrides['showContext'] = true;
+    }
+
+    if (hasOption($options, 'no-context')) {
+        $overrides['showContext'] = false;
+    }
+
+    $stackLimit = readPositiveIntOption($options, 'stack-limit');
+
+    if ($stackLimit !== null) {
+        $overrides['stackLimit'] = $stackLimit;
+    }
+
+    $messageLimit = readPositiveIntOption($options, 'message-limit');
+
+    if ($messageLimit !== null) {
+        $overrides['messageLimit'] = $messageLimit;
+    }
+
+    $indentStyle = readStringOption($options, 'indent-style');
+
+    if ($indentStyle !== null) {
+        $normalized = strtolower($indentStyle);
+
+        if (!in_array($normalized, ['spaces', 'tabs'], true)) {
+            throw new InvalidArgumentException('Option "--indent-style" must be either "spaces" or "tabs".');
+        }
+
+        $overrides['indentStyle'] = $normalized;
+    }
+
+    $indentSize = readPositiveIntOption($options, 'indent-size');
+
+    if ($indentSize !== null) {
+        $overrides['indentSize'] = $indentSize;
+    }
+
+    if (hasOption($options, 'show-meta')) {
+        $overrides['showTableVariableMeta'] = true;
+    }
+
+    if (hasOption($options, 'no-meta')) {
+        $overrides['showTableVariableMeta'] = false;
+    }
+
+    $theme = readStringOption($options, 'theme');
+
+    if ($theme !== null) {
+        $overrides['theme'] = $theme;
+    }
+
+    if ($renderFormat === 'json') {
+        $overrides['autoDetectJson'] = true;
+    }
+
+    return $overrides;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ * @param array{mode: 'expression'|'stdin'|'file', label: string, content?: string, path?: string} $input
+ * @return array<string, mixed>
+ */
+function buildRequestOptions(array $options, array $input, string $renderFormat): array
+{
+    $request = [];
+
+    $colorPreference = resolveColorPreference($options);
+
+    if ($colorPreference !== null) {
+        $request['color'] = $colorPreference;
+    }
+
+    $theme = readStringOption($options, 'theme');
+
+    if ($theme !== null) {
+        $request['theme'] = $theme;
+    }
+
+    if ($renderFormat === 'json') {
+        $request['autoDetectJson'] = true;
+    }
+
+    $label = readStringOption($options, 'expression-label') ?? defaultExpressionLabel($input);
+    $request['expression'] = $label;
+
+    $context = resolveContextOption($options);
+
+    if ($context !== null) {
+        $request['context'] = $context;
+    }
+
+    return $request;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ */
+function resolveColorPreference(array $options): ?bool
+{
+    $color = readBooleanOption($options, 'color');
+
+    if ($color !== null) {
+        return $color;
+    }
+
+    $noColor = readBooleanOption($options, 'no-color');
+
+    if ($noColor !== null) {
+        return !$noColor;
+    }
+
+    return null;
+}
+
+/**
+ * @param array{mode: 'expression'|'stdin'|'file', label: string, content?: string, path?: string} $input
+ */
+function defaultExpressionLabel(array $input): string
+{
+    $label = $input['label'];
+    $label = trim($label);
+
+    if ($label === '') {
+        $label = 'expression';
+    }
+
+    if (strlen($label) > 120) {
+        $label = substr($label, 0, 117) . '…';
+    }
+
+    return $label;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ * @return array<string, mixed>|null
+ */
+function resolveContextOption(array $options): ?array
+{
+    $inline = readStringOption($options, 'context');
+    $file = readStringOption($options, 'context-file');
+
+    if ($inline !== null && $file !== null) {
+        throw new InvalidArgumentException('Please specify either "--context" or "--context-file", not both.');
+    }
+
+    if ($inline !== null) {
+        return decodeJsonToArray($inline);
+    }
+
+    if ($file !== null) {
+        if (!is_file($file)) {
+            throw new InvalidArgumentException(sprintf('Context file "%s" does not exist.', $file));
+        }
+
+        $contents = file_get_contents($file);
+
+        if ($contents === false) {
+            throw new InvalidArgumentException(sprintf('Failed to read context file "%s".', $file));
+        }
+
+        return decodeJsonToArray($contents);
+    }
+
+    return null;
+}
+
+/**
+ * @param array{mode: 'expression'|'stdin'|'file', label: string, content?: string, path?: string} $input
+ */
+function interpretPayload(array $input, string $format): mixed
+{
+    return match ($format) {
+        'php' => interpretPhpInput($input),
+        'json' => decodeJsonPayload(readInputContent($input)),
+        'raw' => readInputContent($input),
+        'serialized' => interpretSerializedInput(readInputContent($input)),
+        default => throw new InvalidArgumentException(sprintf('Unsupported input format "%s".', $format)),
+    };
+}
+
+/**
+ * @param array{mode: 'expression'|'stdin'|'file', label: string, content?: string, path?: string} $input
+ */
+function interpretPhpInput(array $input): mixed
+{
+    if ($input['mode'] === 'file') {
+        $path = $input['path'] ?? '';
+
+        return (static function (string $file): mixed {
+            return require $file;
+        })($path);
+    }
+
+    $code = $input['content'] ?? '';
+
+    if (trim($code) === '') {
+        throw new InvalidArgumentException('Missing expression to dump.');
+    }
+
+    return eval('return ' . $code . ';');
+}
+
+/**
+ * @param array{mode: 'expression'|'stdin'|'file', label: string, content?: string, path?: string} $input
+ */
+function readInputContent(array $input): string
+{
+    if ($input['mode'] === 'file') {
+        $path = $input['path'] ?? '';
+        $contents = file_get_contents($path);
+
+        if ($contents === false) {
+            throw new InvalidArgumentException(sprintf('Failed to read file "%s".', $path));
+        }
+
+        return $contents;
+    }
+
+    return $input['content'] ?? '';
+}
+
+function decodeJsonPayload(string $payload): mixed
+{
+    try {
+        return json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException $exception) {
+        throw new InvalidArgumentException('Unable to decode JSON payload: ' . $exception->getMessage(), 0, $exception);
+    }
+}
+
+function interpretSerializedInput(string $payload): mixed
+{
+    try {
+        $result = @unserialize($payload, ['allowed_classes' => true]);
+    } catch (Throwable $exception) {
+        throw new InvalidArgumentException('Unable to unserialize payload: ' . $exception->getMessage(), 0, $exception);
+    }
+
+    if ($result === false && $payload !== 'b:0;') {
+        throw new InvalidArgumentException('Unable to unserialize payload.');
+    }
+
+    return $result;
+}
+
+function decodeJsonToArray(string $json): array
+{
+    $decoded = decodeJsonPayload($json);
+
+    if (!is_array($decoded)) {
+        throw new InvalidArgumentException('Context JSON must decode to an array.');
+    }
+
+    return $decoded;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ */
+function readStringOption(array $options, string $name): ?string
+{
+    if (!isset($options[$name])) {
+        return null;
+    }
+
+    $values = $options[$name];
+    $value = end($values);
+
+    if ($value === true) {
+        throw new InvalidArgumentException(sprintf('Option "--%s" expects a value.', $name));
+    }
+
+    return (string) $value;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ */
+function readPositiveIntOption(array $options, string $name): ?int
+{
+    if (!isset($options[$name])) {
+        return null;
+    }
+
+    $values = $options[$name];
+    $value = end($values);
+
+    if ($value === true) {
+        throw new InvalidArgumentException(sprintf('Option "--%s" expects a numeric value.', $name));
+    }
+
+    if (!is_numeric($value)) {
+        throw new InvalidArgumentException(sprintf('Option "--%s" expects a numeric value.', $name));
+    }
+
+    $int = (int) $value;
+
+    if ($int <= 0) {
+        throw new InvalidArgumentException(sprintf('Option "--%s" expects a positive integer.', $name));
+    }
+
+    return $int;
+}
+
+/**
+ * @param array<string, list<string|true>> $options
+ */
+function readBooleanOption(array $options, string $name): ?bool
+{
+    if (!isset($options[$name])) {
+        return null;
+    }
+
+    $values = $options[$name];
+    $value = end($values);
+
+    if ($value === true) {
+        return true;
+    }
+
+    $normalized = strtolower((string) $value);
+
+    if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+        return true;
+    }
+
+    if (in_array($normalized, ['0', 'false', 'no', 'off'], true)) {
+        return false;
+    }
+
+    throw new InvalidArgumentException(sprintf('Option "--%s" expects a boolean value.', $name));
+}
+
+function detectTty(): bool
+{
+    $stream = STDOUT;
+
+    if (!is_resource($stream)) {
+        return true;
+    }
+
+    if (function_exists('stream_isatty')) {
+        return stream_isatty($stream);
+    }
+
+    if (function_exists('posix_isatty')) {
+        return @posix_isatty($stream);
+    }
+
+    return true;
+}
+
+function renderHelpText(bool $useColor = false): string
+{
+    $heading = static fn (string $text): string => formatHelpHeading($text, $useColor);
+    $option = static fn (string $text): string => formatHelpOption($text, $useColor);
+    $command = static fn (string $text): string => formatHelpCommand($text, $useColor);
+
+    $lines = [];
+    $lines[] = $heading('Pretty Dumper CLI');
+    $lines[] = '';
+    $lines[] = $heading('Usage:');
+    $lines[] = '  ' . $command('pretty-dump [options] <expression>');
+    $lines[] = '  ' . $command('pretty-dump [options] -- <expression starting with dashes>');
+    $lines[] = '';
+    $lines[] = $heading('Input sources:');
+    $lines[] = '  ' . $option('--stdin') . '                     Read payload from STDIN.';
+    $lines[] = '  ' . $option('--file=PATH') . '                 Load payload from a PHP or data file.';
+    $lines[] = '  ' . $option('--from=php|json|raw|serialized');
+    $lines[] = '                              Control how the input should be interpreted.';
+    $lines[] = '  ' . $option('--expression-label=LABEL') . '    Override the expression metadata shown in output.';
+    $lines[] = '  ' . $option('--context=JSON') . '              Provide context snapshot as JSON.';
+    $lines[] = '  ' . $option('--context-file=PATH') . '         Load context snapshot JSON from disk.';
+    $lines[] = '';
+    $lines[] = $heading('Formatter options:');
+    $lines[] = '  ' . $option('--depth=INT') . '                 Limit nested depth (default 5).';
+    $lines[] = '  ' . $option('--max-items=INT') . '             Limit items per level (default 100).';
+    $lines[] = '  ' . $option('--max-hard-limit=INT') . '        Absolute maximum tracked items (default 5000).';
+    $lines[] = '  ' . $option('--string-limit=INT') . '          Truncate long strings (default 160).';
+    $lines[] = '  ' . $option('--expand-exceptions[=BOOL]') . '  Expand nested exception chains.';
+    $lines[] = '  ' . $option('--stack-limit=INT') . '           Limit captured stack frames (default 10).';
+    $lines[] = '  ' . $option('--message-limit=INT') . '         Truncate exception messages (default 160).';
+    $lines[] = '  ' . $option('--indent-style=spaces|tabs') . '  Switch indentation style (default spaces).';
+    $lines[] = '  ' . $option('--indent-size=INT') . '           Configure indentation size (default 2).';
+    $lines[] = '  ' . $option('--show-meta') . '                 Display table expression metadata.';
+    $lines[] = '  ' . $option('--no-meta') . '                   Hide table expression metadata.';
+    $lines[] = '  ' . $option('--show-context') . '              Force rendering of context blocks.';
+    $lines[] = '  ' . $option('--no-context') . '                Disable context rendering.';
+    $lines[] = '';
+    $lines[] = $heading('Rendering:');
+    $lines[] = '  ' . $option('--format=text|json') . '          Enable JSON aware formatting.';
+    $lines[] = '  ' . $option('--theme=NAME') . '                Choose rendering theme (default auto).';
+    $lines[] = '  ' . $option('--color[=BOOL]') . '              Force ANSI colors.';
+    $lines[] = '  ' . $option('--no-color[=BOOL]') . '           Disable ANSI colors.';
+    $lines[] = '';
+    $lines[] = $heading('Examples:');
+    $lines[] = '  ' . $command("pretty-dump \"['id' => 42]\"");
+    $lines[] = '  ' . $command('pretty-dump --depth=4 -- "config(\'app\')"');
+    $lines[] = '  ' . $command("echo '{\"ok\":true}' | pretty-dump --stdin --from=json --format=json");
+    $lines[] = '  ' . $command('pretty-dump --file=bootstrap/result.php --theme=dark');
+    $lines[] = '';
+
+    return implode(PHP_EOL, $lines);
+}
+
+function formatHelpHeading(string $text, bool $useColor): string
+{
+    if (!$useColor) {
+        return $text;
+    }
+
+    return "\033[1;36m" . $text . "\033[0m";
+}
+
+function formatHelpOption(string $text, bool $useColor): string
+{
+    if (!$useColor) {
+        return $text;
+    }
+
+    return "\033[33m" . $text . "\033[0m";
+}
+
+function formatHelpCommand(string $text, bool $useColor): string
+{
+    if (!$useColor) {
+        return $text;
+    }
+
+    return "\033[32m" . $text . "\033[0m";
 }
