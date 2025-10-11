@@ -14,6 +14,7 @@ final class WebRenderer
     private int $indentSize;
     private string $indentStyle;
     private bool $showExpressionMeta = false;
+    private bool $themeToggleRendered = false;
 
     public function __construct(
         private PrettyFormatter $formatter,
@@ -31,6 +32,7 @@ final class WebRenderer
     {
         $options = $this->sanitizeOptions($options);
         $preferJavascript = $this->evaluateBool($options['preferJavascript'] ?? null, true);
+        $this->themeToggleRendered = false;
         $segment = $this->formatter->format($request);
         $metadata = $segment->metadata();
         $currentThemeMeta = $metadata['theme'] ?? null;
@@ -79,26 +81,15 @@ final class WebRenderer
             );
         }
 
-        return $markup;
+        if ($markup === '') {
+            return '';
+        }
+
+        return sprintf('<div class="theme-palette-meta" aria-hidden="true">%s</div>', $markup);
     }
 
     private function renderCssStyles(string $theme): string
     {
-        $colors = $this->getThemeColors($theme);
-        $isLightTheme = $theme !== 'dark';
-
-        $backgroundColor = $isLightTheme ? '#ffffff' : '#1f2933';
-        $borderColor = $isLightTheme ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.16)';
-        $textColor = $isLightTheme ? '#1f2933' : '#f9fafb';
-        $panelBackground = $isLightTheme ? '#f8fafc' : '#27303f';
-        $mutedColor = $isLightTheme ? '#64748b' : '#cbd5f5';
-        $accentColor = $colors['array'];
-        $noticeColor = $colors['notice'];
-        $keyColor = $colors['key'] ?? $accentColor;
-        $stackFunctionColor = $isLightTheme ? '#475569' : '#cbd5f5';
-        $stackIndexColor = $isLightTheme ? '#94a3b8' : '#7f8ea9';
-        $stackLocationColor = $isLightTheme ? '#a8b4cc' : '#6e809f';
-
         $css = <<<'CSS'
             .pretty-dump {
                 font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
@@ -304,17 +295,15 @@ final class WebRenderer
             .pretty-dump .node-value-unknown { color: __UNKNOWN__; }
 
             .pretty-dump .node-actions {
-                display: flex;
+                display: none;
                 gap: 0.25rem;
-                opacity: 0;
-                transition: opacity 0.2s ease;
             }
 
             .pretty-dump summary:hover .node-actions,
             .pretty-dump summary:focus-within .node-actions,
             .pretty-dump .node-inline:hover .node-actions,
             .pretty-dump .node-inline:focus-within .node-actions {
-                opacity: 1;
+                display: flex;
             }
 
             .pretty-dump .node-action {
@@ -329,7 +318,13 @@ final class WebRenderer
             .pretty-dump .node-action:hover,
             .pretty-dump .node-action:focus {
                 background-color: rgba(37, 99, 235, 0.12);
+                background-color: color-mix(in srgb, __ACCENT__ 12%, transparent 88%);
                 color: __ACCENT__;
+            }
+
+
+            .pretty-dump .node-action.theme-toggle {
+                font-size: 0.9rem;
             }
 
             .pretty-dump [data-node-type].search-result-target > summary,
@@ -337,8 +332,6 @@ final class WebRenderer
                 border-radius: 6px;
                 box-shadow: inset 0 0 0 2px __ACCENT__, 0 0 0 4px rgba(37, 99, 235, 0.22);
                 box-shadow: inset 0 0 0 2px __ACCENT__, 0 0 0 4px color-mix(in srgb, __ACCENT__ 22%, transparent 78%);
-                background-color: rgba(37, 99, 235, 0.35);
-                background-color: color-mix(in srgb, __ACCENT__ 35%, transparent 65%);
             }
 
             .pretty-dump [data-node-type].search-result-target > summary .node-summary-label,
@@ -347,40 +340,11 @@ final class WebRenderer
                 font-weight: 700;
             }
 
-            .pretty-dump [data-node-type].search-result-context {
-                position: relative;
-                border-radius: 6px;
-                overflow: hidden;
-            }
-
-            .pretty-dump [data-node-type].search-result-context::before {
-                content: "";
-                position: absolute;
-                inset: 0;
-                border-radius: 6px;
-                background-color: rgba(148, 163, 184, 0.08);
-                background-color: color-mix(in srgb, __BORDER__ 12%, transparent 88%);
-                box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25), inset 4px 0 0 rgba(37, 99, 235, 0.45);
-                box-shadow: inset 0 0 0 1px color-mix(in srgb, __BORDER__ 25%, transparent 75%), inset 4px 0 0 color-mix(in srgb, __ACCENT__ 45%, transparent 55%);
-                pointer-events: none;
-                z-index: 0;
-            }
-
-            .pretty-dump [data-node-type].search-result-context > summary,
-            .pretty-dump [data-node-type].search-result-context.node-inline {
-                position: relative;
-                z-index: 1;
-                border-radius: 0;
-            }
-
-            .pretty-dump [data-node-type].search-result-context > summary {
-                color: __TEXT__;
-            }
-
-            .pretty-dump [data-node-type].search-result-context > summary .node-summary-label,
-            .pretty-dump [data-node-type].search-result-context.node-inline .node-label {
-                color: __STACK_INDEX__;
-                font-weight: 600;
+            .pretty-dump .search-highlight {
+                background-color: rgba(37, 99, 235, 0.28);
+                background-color: color-mix(in srgb, __ACCENT__ 28%, transparent 72%);
+                border-radius: 4px;
+                padding: 0.05rem 0.15rem;
             }
 
             .pretty-dump .pretty-dump-table-panel {
@@ -446,6 +410,7 @@ final class WebRenderer
             .pretty-dump .pretty-dump-table-close:hover,
             .pretty-dump .pretty-dump-table-close:focus {
                 background: rgba(37, 99, 235, 0.12);
+                background: color-mix(in srgb, __ACCENT__ 12%, transparent 88%);
                 color: __ACCENT__;
             }
 
@@ -575,7 +540,7 @@ final class WebRenderer
             .pretty-dump .context-block {
                 border: 1px solid __BORDER__;
                 border-radius: 4px;
-                color: #6b7280;
+                color: __MUTED__;
                 font-size: 0.68rem;
             }
 
@@ -606,31 +571,116 @@ final class WebRenderer
             .pretty-dump .theme-profile {
                 display: none;
             }
+
+            .pretty-dump .theme-palette-meta {
+                display: none;
+            }
         CSS;
 
-        return strtr($css, [
-            '__BACKGROUND__' => $backgroundColor,
-            '__TEXT__' => $textColor,
-            '__BORDER__' => $borderColor,
-            '__ARRAY__' => $colors['array'],
-            '__OBJECT__' => $colors['object'],
-            '__STRING__' => $colors['string'],
-            '__NUMBER__' => $colors['number'],
-            '__BOOL__' => $colors['bool'],
-            '__NULL__' => $colors['null'],
-            '__UNKNOWN__' => $colors['unknown'],
-            '__NOTICE__' => $noticeColor,
-            '__CIRCULAR__' => $colors['circular'],
-            '__CONTEXT__' => $keyColor,
-            '__PERFORMANCE__' => $colors['performance'] ?? $mutedColor,
-            '__EXCEPTION__' => $colors['exception'] ?? $colors['object'],
-            '__ACCENT__' => $accentColor,
+        $css = strtr($css, [
+            '__BACKGROUND__' => 'var(--pd-background)',
+            '__TEXT__' => 'var(--pd-text)',
+            '__BORDER__' => 'var(--pd-border)',
+            '__ARRAY__' => 'var(--pd-array)',
+            '__OBJECT__' => 'var(--pd-object)',
+            '__STRING__' => 'var(--pd-string)',
+            '__NUMBER__' => 'var(--pd-number)',
+            '__BOOL__' => 'var(--pd-bool)',
+            '__NULL__' => 'var(--pd-null)',
+            '__UNKNOWN__' => 'var(--pd-unknown)',
+            '__NOTICE__' => 'var(--pd-notice)',
+            '__CIRCULAR__' => 'var(--pd-circular)',
+            '__CONTEXT__' => 'var(--pd-context)',
+            '__PERFORMANCE__' => 'var(--pd-performance)',
+            '__EXCEPTION__' => 'var(--pd-exception)',
+            '__ACCENT__' => 'var(--pd-accent)',
             '__INDENT__' => $this->getIndentSpacing(),
-            '__PANEL_BG__' => $panelBackground,
-            '__STACK_FUNCTION__' => $stackFunctionColor,
-            '__STACK_LOCATION__' => $stackLocationColor,
-            '__STACK_INDEX__' => $stackIndexColor,
+            '__PANEL_BG__' => 'var(--pd-panel-bg)',
+            '__STACK_FUNCTION__' => 'var(--pd-stack-function)',
+            '__STACK_LOCATION__' => 'var(--pd-stack-location)',
+            '__STACK_INDEX__' => 'var(--pd-stack-index)',
+            '__MUTED__' => 'var(--pd-muted)',
         ]);
+
+        $autoVariables = $this->themeVariablesFor($theme === 'dark' ? 'dark' : 'light');
+        $lightVariables = $this->themeVariablesFor('light');
+        $darkVariables = $this->themeVariablesFor('dark');
+
+        $css .= sprintf(
+            "\n.pretty-dump[data-theme=\"auto\"], .pretty-dump[data-theme=\"auto\"] .pretty-dump-table-panel {%s}\n",
+            $this->formatThemeVariables($autoVariables),
+        );
+
+        $css .= sprintf(
+            ".pretty-dump[data-theme=\"light\"], .pretty-dump[data-theme=\"light\"] .pretty-dump-table-panel {%s}\n",
+            $this->formatThemeVariables($lightVariables),
+        );
+
+        $css .= sprintf(
+            ".pretty-dump[data-theme=\"dark\"], .pretty-dump[data-theme=\"dark\"] .pretty-dump-table-panel {%s}\n",
+            $this->formatThemeVariables($darkVariables),
+        );
+
+        return $css;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function themeVariablesFor(string $theme): array
+    {
+        $normalizedTheme = $theme === 'dark' ? 'dark' : 'light';
+        $colors = $this->getThemeColors($normalizedTheme);
+        $isLightTheme = $normalizedTheme !== 'dark';
+
+        $backgroundColor = $isLightTheme ? '#ffffff' : '#1f2933';
+        $borderColor = $isLightTheme ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.16)';
+        $textColor = $isLightTheme ? '#1f2933' : '#f9fafb';
+        $panelBackground = $isLightTheme ? '#f8fafc' : '#27303f';
+        $mutedColor = $isLightTheme ? '#64748b' : '#cbd5f5';
+        $stackFunctionColor = $isLightTheme ? '#475569' : '#cbd5f5';
+        $stackIndexColor = $isLightTheme ? '#94a3b8' : '#7f8ea9';
+        $stackLocationColor = $isLightTheme ? '#a8b4cc' : '#6e809f';
+        $keyColor = $colors['key'] ?? $colors['array'];
+        $performanceColor = $colors['performance'] ?? $mutedColor;
+        $exceptionColor = $colors['exception'] ?? $colors['object'];
+
+        return [
+            '--pd-background' => $backgroundColor,
+            '--pd-text' => $textColor,
+            '--pd-border' => $borderColor,
+            '--pd-panel-bg' => $panelBackground,
+            '--pd-array' => $colors['array'],
+            '--pd-object' => $colors['object'],
+            '--pd-string' => $colors['string'],
+            '--pd-number' => $colors['number'],
+            '--pd-bool' => $colors['bool'],
+            '--pd-null' => $colors['null'],
+            '--pd-unknown' => $colors['unknown'],
+            '--pd-notice' => $colors['notice'],
+            '--pd-circular' => $colors['circular'],
+            '--pd-context' => $keyColor,
+            '--pd-performance' => $performanceColor,
+            '--pd-exception' => $exceptionColor,
+            '--pd-accent' => $colors['array'],
+            '--pd-stack-function' => $stackFunctionColor,
+            '--pd-stack-index' => $stackIndexColor,
+            '--pd-stack-location' => $stackLocationColor,
+            '--pd-muted' => $mutedColor,
+        ];
+    }
+
+    /**
+     * @param array<string, string> $variables
+     */
+    private function formatThemeVariables(array $variables): string
+    {
+        $segments = [];
+        foreach ($variables as $name => $value) {
+            $segments[] = sprintf('%s:%s', $name, $value);
+        }
+
+        return implode(';', $segments) . ';';
     }
 
     /**
@@ -880,6 +930,12 @@ final class WebRenderer
         if ($this->isTabularJsonStructure($metadata['jsonValue'])) {
             $tableLabel = $this->escapeAttr(sprintf('Render %s as table', $this->truncateLabel($expressionValue, 40)));
             $buttons[] = sprintf('<button type="button" class="node-action" data-action="table" aria-label="%s" title="Render as table">📊</button>', $tableLabel);
+        }
+
+        if ($depth === 0 && !$this->themeToggleRendered) {
+            $toggleLabel = $this->escapeAttr('切换主题');
+            $buttons[] = sprintf('<button type="button" class="node-action theme-toggle" data-theme-action="toggle" data-theme-next="dark" aria-label="%s" title="%s">🌓</button>', $toggleLabel, $toggleLabel);
+            $this->themeToggleRendered = true;
         }
 
         return sprintf('<span class="node-actions">%s</span>', implode('', $buttons));
@@ -1263,6 +1319,9 @@ final class WebRenderer
   var promptResolve=null;
   var toastContainer=null;
   var lastSearchTerm='';
+  var themeToggleLabels={dark:'切换为深色主题',light:'切换为浅色主题'};
+  var themeStorageKey='pretty-dumper.theme.preference';
+  var storedThemePreference=readStoredTheme();
 
   dumps.forEach(function(dump){
     applyTheme(dump);
@@ -1270,6 +1329,19 @@ final class WebRenderer
     dump.addEventListener('click',function(event){
       var target=event.target instanceof Element?event.target:null;
       if(!target){return;}
+
+      var themeControl=target.closest('[data-theme-action]');
+      if(themeControl){
+        var themeAction=themeControl.getAttribute('data-theme-action');
+        if(themeAction==='toggle'){
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          toggleTheme(dump);
+        }
+        return;
+      }
+
       var button=target.closest('.node-action');
       if(!button){return;}
       event.preventDefault();
@@ -1305,6 +1377,11 @@ final class WebRenderer
 
   function applyTheme(dump){
     var palette=dump.querySelectorAll('.theme-profile');
+    if(storedThemePreference==='light'||storedThemePreference==='dark'){
+      setExplicitTheme(dump,storedThemePreference,{persist:false,broadcast:false});
+      return;
+    }
+
     if(!palette.length){return;}
     var preference=dump.getAttribute('data-theme-preference')||'auto';
     if(preference!=='auto'){
@@ -1312,6 +1389,7 @@ final class WebRenderer
       if(dump._tablePanel){
         dump._tablePanel.setAttribute('data-theme',preference);
       }
+      updateThemeToggle(dump);
       ensureThemeObserver(dump);
       return;
     }
@@ -1324,6 +1402,80 @@ final class WebRenderer
       dump._tablePanel.setAttribute('data-theme',targetTheme);
     }
     ensureThemeObserver(dump);
+    updateThemeToggle(dump);
+  }
+
+  function toggleTheme(dump){
+    var preference=dump.getAttribute('data-theme-preference')||'auto';
+    var currentTheme=(preference!=='auto'?preference:(dump.getAttribute('data-theme')||'light')).toLowerCase();
+    if(currentTheme!=='dark'&&currentTheme!=='light'){currentTheme='light';}
+    var nextTheme=currentTheme==='dark'?'light':'dark';
+    setExplicitTheme(dump,nextTheme);
+  }
+
+  function setExplicitTheme(dump,theme,options){
+    if(options===undefined){options={};}
+    var shouldPersist=options.persist!==false;
+    var shouldBroadcast=options.broadcast!==false;
+
+    dump.setAttribute('data-theme-preference',theme);
+    dump.setAttribute('data-theme',theme);
+    if(dump._tablePanel){
+      dump._tablePanel.setAttribute('data-theme',theme);
+    }
+
+    if(shouldPersist){
+      persistStoredTheme(theme);
+    }
+
+    updateThemeToggle(dump);
+    ensureThemeObserver(dump);
+
+    if(shouldBroadcast){
+      dumps.forEach(function(other){
+        if(other===dump){return;}
+        setExplicitTheme(other,theme,{persist:false,broadcast:false});
+      });
+    }
+  }
+
+  function updateThemeToggle(dump){
+    var button=dump.querySelector('[data-theme-action="toggle"]');
+    if(!button){return;}
+    var current=(dump.getAttribute('data-theme')||'').toLowerCase();
+    if(current!=='dark'&&current!=='light'){current='light';}
+    var next=current==='dark'?'light':'dark';
+    var label=themeToggleLabels[next]||'切换主题';
+    button.setAttribute('aria-label',label);
+    button.setAttribute('title',label);
+    button.setAttribute('data-theme-next',next);
+  }
+
+  function readStoredTheme(){
+    try{
+      var value=window.localStorage?window.localStorage.getItem(themeStorageKey):null;
+      if(value==='light'||value==='dark'||value==='auto'){
+        return value;
+      }
+    }catch(error){
+      // ignore
+    }
+
+    return null;
+  }
+
+  function persistStoredTheme(theme){
+    storedThemePreference=theme;
+    if(!window.localStorage){return;}
+    try{
+      if(theme==='auto'||theme===null){
+        window.localStorage.removeItem(themeStorageKey);
+      }else{
+        window.localStorage.setItem(themeStorageKey,theme);
+      }
+    }catch(error){
+      // ignore
+    }
   }
 
   function ensurePrompt(){
@@ -1680,6 +1832,7 @@ final class WebRenderer
       if(dump._tablePanel){
         dump._tablePanel.setAttribute('data-theme',theme);
       }
+      updateThemeToggle(dump);
     });
   });
 
@@ -1823,7 +1976,135 @@ final class WebRenderer
     return String(value);
   }
 
+  function clearSearchHighlights(root){
+    root.querySelectorAll('.search-highlight').forEach(function(element){
+      var parent=element.parentNode;
+      var text=element.textContent||'';
+      element.replaceWith(text);
+      if(parent && typeof parent.normalize==='function'){
+        parent.normalize();
+      }
+    });
+  }
+
+  function highlightMatches(container,term){
+    if(!container||!term){
+      return;
+    }
+
+    var search=term.toLowerCase();
+    var showTextFilter=typeof NodeFilter!=='undefined'?NodeFilter.SHOW_TEXT:4;
+    var walker=document.createTreeWalker(container,showTextFilter,null);
+    var targets=[];
+
+    while(walker.nextNode()){
+      var node=walker.currentNode;
+      if(!node||!node.nodeValue){
+        continue;
+      }
+      if(node.nodeValue.toLowerCase().includes(search)){
+        targets.push(node);
+      }
+    }
+
+    targets.forEach(function(textNode){
+      wrapMatches(textNode,term,search);
+    });
+  }
+
+  function wrapMatches(textNode,term,search){
+    var original=textNode.nodeValue||'';
+    var lower=original.toLowerCase();
+    var lastIndex=0;
+    var index=lower.indexOf(search);
+
+    if(index===-1){
+      return;
+    }
+
+    var fragment=document.createDocumentFragment();
+
+    while(index!==-1){
+      if(index>lastIndex){
+        fragment.append(original.slice(lastIndex,index));
+      }
+
+      var matchText=original.slice(index,index+term.length);
+      var span=document.createElement('span');
+      span.className='search-highlight';
+      span.textContent=matchText;
+      fragment.append(span);
+
+      lastIndex=index+term.length;
+      index=lower.indexOf(search,lastIndex);
+    }
+
+    if(lastIndex<original.length){
+      fragment.append(original.slice(lastIndex));
+    }
+
+    textNode.replaceWith(fragment);
+  }
+
+  function normalizeExpressionSearchTerm(term){
+    return term
+      .replace(/^[\[\]\s'"`]+/,'')
+      .replace(/[\[\]\s'"`]+$/,'')
+      .replace(/^->/,'')
+      .replace(/^\./,'');
+  }
+
+  function expressionMatchesNode(expression,search){
+    if(!expression||!search){
+      return false;
+    }
+
+    var trimmedExpression=expression.trim();
+    if(trimmedExpression===''){
+      return false;
+    }
+
+    var searchToken=normalizeExpressionSearchTerm(search);
+    var segments=[];
+
+    var bracketMatch=trimmedExpression.match(/\[['"]?([^'"\]]+)['"]?\]\s*$/);
+    if(bracketMatch&&bracketMatch[1]){
+      segments.push(bracketMatch[1]);
+    }
+
+    var arrowMatch=trimmedExpression.match(/->\s*([a-zA-Z_][\w]*)\s*$/);
+    if(arrowMatch&&arrowMatch[1]){
+      segments.push(arrowMatch[1]);
+    }
+
+    var dotMatch=trimmedExpression.match(/\.([a-zA-Z_][\w]*)\s*$/);
+    if(dotMatch&&dotMatch[1]){
+      segments.push(dotMatch[1]);
+    }
+
+    if(!segments.length){
+      var fallback=trimmedExpression.replace(/^\$+/,'');
+      if(fallback!==''){
+        segments.push(fallback);
+      }
+    }
+
+    return segments.some(function(segment){
+      var lower=segment.toLowerCase();
+      if(lower.includes(search)){
+        return true;
+      }
+
+      if(searchToken!==''&&lower.includes(searchToken)){
+        return true;
+      }
+
+      return false;
+    });
+  }
+
   function performSearch(root,scopeNode,term){
+    clearSearchHighlights(root);
     root.querySelectorAll('[data-node-type].search-result-target').forEach(function(el){
       el.classList.remove('search-result-target');
     });
@@ -1847,15 +2128,15 @@ final class WebRenderer
     candidates.forEach(function(candidate){
       var label=candidate.querySelector('.node-summary-label')||candidate.querySelector('.node-label');
       var labelText=label&&label.textContent?label.textContent.toLowerCase():'';
-      var expression=(candidate.getAttribute('data-expression')||'').toLowerCase();
+      var expressionAttr=candidate.getAttribute('data-expression')||'';
       var json=(candidate.getAttribute('data-json')||'').toLowerCase();
 
-      if(labelText===''&&expression===''&&json===''){
+      if(labelText===''&&expressionAttr===''&&json===''){
         return;
       }
 
       var labelMatch=labelText.includes(search);
-      var expressionMatch=expression.includes(search);
+      var expressionMatch=expressionMatchesNode(expressionAttr,search);
       var jsonMatch=json.includes(search);
       var isBranch=candidate.matches('details[data-node-type], [data-node-type].node-branch');
       var isDirectMatch=labelMatch||expressionMatch||(jsonMatch&&!isBranch);
@@ -1870,6 +2151,45 @@ final class WebRenderer
 
       if(isDirectMatch){
         candidate.classList.add('search-result-target');
+
+        var highlightTargets=new Set();
+        var highlightSelectors=[
+          '.node-summary-label',
+          '.node-label',
+          '.node-value',
+          '.node-key',
+          '.node-type-label',
+          '.node-expression'
+        ];
+
+        var highlightContainers=[];
+        if(candidate.tagName==='DETAILS'){
+          var summary=candidate.querySelector('summary');
+          if(summary){
+            highlightContainers.push(summary);
+          }
+        } else {
+          highlightContainers.push(candidate);
+        }
+
+        highlightSelectors.forEach(function(selector){
+          highlightContainers.forEach(function(container){
+            container.querySelectorAll(selector).forEach(function(element){
+              var text=element.textContent?element.textContent.toLowerCase():'';
+              if(text.includes(search)){
+                highlightTargets.add(element);
+              }
+            });
+          });
+        });
+
+        if(highlightTargets.size===0 && label && labelMatch){
+          highlightTargets.add(label);
+        }
+
+        highlightTargets.forEach(function(element){
+          highlightMatches(element,trimmed);
+        });
       } else {
         candidate.classList.add('search-result-context');
       }

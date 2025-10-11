@@ -174,3 +174,53 @@
 [data-theme="dark"] .pretty-dump .pretty-dump-table tbody tr:hover td {
     background: rgba(37, 99, 235, 0.28);
 }
+
+.pretty-dump .node-actions {
+    display: none;
+    gap: 0.25rem;
+}
+
+.pretty-dump summary:hover .node-actions,
+.pretty-dump summary:focus-within .node-actions,
+.pretty-dump .node-inline:hover .node-actions,
+.pretty-dump .node-inline:focus-within .node-actions {
+    display: flex;
+}
+
+
+.pretty-dump .node-action {
+    border: none;
+    background: transparent;
+    color: rgba(71, 85, 105, 0.9);
+    cursor: pointer;
+    padding: 0.1rem;
+    border-radius: 3px;
+}
+
+.pretty-dump .node-action:hover,
+.pretty-dump .node-action:focus {
+    background-color: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+}
+
+.pretty-dump .node-action.theme-toggle {
+    font-size: 0.9rem;
+}
+
+.pretty-dump [data-node-type].search-result-target > summary,
+.pretty-dump [data-node-type].search-result-target.node-inline {
+    border-radius: 6px;
+    box-shadow: inset 0 0 0 2px #2563eb, 0 0 0 4px rgba(37, 99, 235, 0.22);
+}
+
+.pretty-dump [data-node-type].search-result-target > summary .node-summary-label,
+.pretty-dump [data-node-type].search-result-target.node-inline .node-label {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+.pretty-dump .search-highlight {
+    background-color: rgba(37, 99, 235, 0.28);
+    border-radius: 4px;
+    padding: 0.05rem 0.15rem;
+}

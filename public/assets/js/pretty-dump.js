@@ -87,7 +87,134 @@
         ensureThemeObserver(dump);
     }
 
+    function clearSearchHighlights(root) {
+        root.querySelectorAll('.search-highlight').forEach((element) => {
+            const parent = element.parentNode;
+            const text = element.textContent || '';
+            element.replaceWith(text);
+            if (parent && typeof parent.normalize === 'function') {
+                parent.normalize();
+            }
+        });
+    }
+
+    function highlightMatches(container, term) {
+        if (!container || !term) {
+            return;
+        }
+
+        const search = term.toLowerCase();
+        const showTextFilter = typeof NodeFilter !== 'undefined' ? NodeFilter.SHOW_TEXT : 4;
+        const walker = document.createTreeWalker(container, showTextFilter, null);
+        const targets = [];
+
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            if (!node || !node.nodeValue) {
+                continue;
+            }
+
+            if (node.nodeValue.toLowerCase().includes(search)) {
+                targets.push(node);
+            }
+        }
+
+        targets.forEach((textNode) => wrapMatches(textNode, term, search));
+    }
+
+    function wrapMatches(textNode, term, search) {
+        const original = textNode.nodeValue || '';
+        const lower = original.toLowerCase();
+        let lastIndex = 0;
+        let index = lower.indexOf(search);
+
+        if (index === -1) {
+            return;
+        }
+
+        const fragment = document.createDocumentFragment();
+
+        while (index !== -1) {
+            if (index > lastIndex) {
+                fragment.append(original.slice(lastIndex, index));
+            }
+
+            const matchText = original.slice(index, index + term.length);
+            const span = document.createElement('span');
+            span.className = 'search-highlight';
+            span.textContent = matchText;
+            fragment.append(span);
+
+            lastIndex = index + term.length;
+            index = lower.indexOf(search, lastIndex);
+        }
+
+        if (lastIndex < original.length) {
+            fragment.append(original.slice(lastIndex));
+        }
+
+        textNode.replaceWith(fragment);
+    }
+
+    function normalizeExpressionSearchTerm(term) {
+        return term
+            .replace(/^[\[\]\s'"`]+/, '')
+            .replace(/[\[\]\s'"`]+$/, '')
+            .replace(/^->/, '')
+            .replace(/^\./, '');
+    }
+
+    function expressionMatchesNode(expression, search) {
+        if (!expression || !search) {
+            return false;
+        }
+
+        const trimmedExpression = expression.trim();
+        if (trimmedExpression === '') {
+            return false;
+        }
+
+        const searchToken = normalizeExpressionSearchTerm(search);
+        const segments = [];
+
+        const bracketMatch = trimmedExpression.match(/\[['"]?([^'"\]]+)['"]?\]\s*$/);
+        if (bracketMatch && bracketMatch[1]) {
+            segments.push(bracketMatch[1]);
+        }
+
+        const arrowMatch = trimmedExpression.match(/->\s*([a-zA-Z_][\w]*)\s*$/);
+        if (arrowMatch && arrowMatch[1]) {
+            segments.push(arrowMatch[1]);
+        }
+
+        const dotMatch = trimmedExpression.match(/\.([a-zA-Z_][\w]*)\s*$/);
+        if (dotMatch && dotMatch[1]) {
+            segments.push(dotMatch[1]);
+        }
+
+        if (segments.length === 0) {
+            const fallback = trimmedExpression.replace(/^\$+/, '');
+            if (fallback !== '') {
+                segments.push(fallback);
+            }
+        }
+
+        return segments.some((segment) => {
+            const lower = segment.toLowerCase();
+            if (lower.includes(search)) {
+                return true;
+            }
+
+            if (searchToken !== '' && lower.includes(searchToken)) {
+                return true;
+            }
+
+            return false;
+        });
+    }
+
     function performSearch(root, scopeNode, term) {
+        clearSearchHighlights(root);
         root.querySelectorAll('[data-node-type].search-result-target').forEach((el) => el.classList.remove('search-result-target'));
         root.querySelectorAll('[data-node-type].search-result-context').forEach((el) => el.classList.remove('search-result-context'));
 
@@ -103,15 +230,15 @@
         candidates.forEach((candidate) => {
             const label = candidate.querySelector('.node-summary-label') || candidate.querySelector('.node-label');
             const labelText = label?.textContent ? label.textContent.toLowerCase() : '';
-            const expressionText = (candidate.getAttribute('data-expression') || '').toLowerCase();
+            const expressionAttribute = candidate.getAttribute('data-expression') || '';
             const jsonText = (candidate.getAttribute('data-json') || '').toLowerCase();
 
-            if (!labelText && !expressionText && !jsonText) {
+            if (!labelText && !expressionAttribute && !jsonText) {
                 return;
             }
 
             const labelMatch = labelText.includes(search);
-            const expressionMatch = expressionText.includes(search);
+            const expressionMatch = expressionMatchesNode(expressionAttribute, search);
             const jsonMatch = jsonText.includes(search);
             const isBranch = candidate.matches('details[data-node-type], [data-node-type].node-branch');
             const isDirectMatch = labelMatch || expressionMatch || (jsonMatch && !isBranch);
@@ -126,6 +253,43 @@
 
             if (isDirectMatch) {
                 candidate.classList.add('search-result-target');
+
+                const highlightTargets = new Set();
+                const highlightSelectors = [
+                    '.node-summary-label',
+                    '.node-label',
+                    '.node-value',
+                    '.node-key',
+                    '.node-type-label',
+                    '.node-expression',
+                ];
+
+                const highlightContainers = [];
+                if (candidate.tagName === 'DETAILS') {
+                    const summary = candidate.querySelector('summary');
+                    if (summary) {
+                        highlightContainers.push(summary);
+                    }
+                } else {
+                    highlightContainers.push(candidate);
+                }
+
+                highlightSelectors.forEach((selector) => {
+                    highlightContainers.forEach((container) => {
+                        container.querySelectorAll(selector).forEach((element) => {
+                            const text = element.textContent ? element.textContent.toLowerCase() : '';
+                            if (text.includes(search)) {
+                                highlightTargets.add(element);
+                            }
+                        });
+                    });
+                });
+
+                if (highlightTargets.size === 0 && label && labelMatch) {
+                    highlightTargets.add(label);
+                }
+
+                highlightTargets.forEach((element) => highlightMatches(element, trimmed));
             } else {
                 candidate.classList.add('search-result-context');
             }

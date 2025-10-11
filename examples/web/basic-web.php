@@ -120,25 +120,9 @@ $path = parse_url($path, PHP_URL_PATH);
         .options a:hover {
             text-decoration: underline;
         }
-        .theme-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            background: #6c757d;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .theme-toggle:hover {
-            background: #5a6268;
-        }
     </style>
 </head>
 <body>
-    <button class="theme-toggle" onclick="toggleTheme()">切换主题</button>
-
     <div class="container">
         <h1>PrettyDumper Web 示例</h1>
 

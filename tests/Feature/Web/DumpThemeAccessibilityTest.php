@@ -22,7 +22,8 @@ it('renders both light and dark themes with wcag contrast', function (): void {
     expect($html)
         ->toContain('data-theme="light"')
         ->toContain('data-theme="dark"')
-        ->toContain('aria-label="Dump output"');
+        ->toContain('aria-label="Dump output"')
+        ->toContain('data-theme-action="toggle"');
 });
 
 it('ensures templates expose contrast metadata for auditing', function (): void {
