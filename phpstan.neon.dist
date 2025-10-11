@@ -1,0 +1,9 @@
+parameters:
+    level: max
+    paths:
+        - src
+    parallel:
+        maximumNumberOfProcesses: 1
+    ignoreErrors: []
+    bootstrapFiles:
+        - stubs/framework-stubs.php

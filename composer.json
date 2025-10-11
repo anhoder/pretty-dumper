@@ -1,0 +1,38 @@
+{
+  "name": "pretty/dumper",
+  "description": "Multi-channel debugging output tools for CLI and web",
+  "type": "library",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.0"
+  },
+  "require-dev": {
+    "pestphp/pest": "^1.23",
+    "phpstan/phpstan": "^2.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "PrettyDumper\\": "src/PrettyDumper/"
+    },
+    "files": [
+      "src/autoload/pest-test-suite-loader.php",
+      "src/helpers.php"
+    ]
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PrettyDumper\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "vendor/bin/pest",
+    "phpstan": "PHPSTAN_DISABLE_PARALLEL=1 php -d disable_functions=proc_open -d memory_limit=512M vendor/bin/phpstan --level=max analyse src",
+    "mago": "mago lint --reporting-format short"
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  }
+}

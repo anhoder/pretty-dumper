@@ -1,0 +1,176 @@
+:root {
+    --pretty-dump-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+[data-theme="light"] .pretty-dump {
+    background-color: #ffffff;
+    color: #1f2933;
+}
+
+[data-theme="dark"] .pretty-dump {
+    background-color: #1f2933;
+    color: #f8fafc;
+}
+
+.pretty-dump {
+    font-family: var(--pretty-dump-font);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+}
+
+.pretty-dump pre {
+    white-space: pre-wrap;
+    margin: 0;
+}
+
+.pretty-dump .truncate-notice {
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+.pretty-dump .pretty-dump-table-panel {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.pretty-dump .pretty-dump-table-card {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 8px;
+    background-color: rgba(248, 250, 252, 0.95);
+    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.18);
+    overflow: hidden;
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table-card {
+    border-color: rgba(148, 163, 184, 0.45);
+    background-color: rgba(39, 48, 63, 0.9);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+}
+
+.pretty-dump .pretty-dump-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: rgba(148, 163, 184, 0.12);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table-header {
+    background: rgba(71, 85, 105, 0.35);
+    border-color: rgba(148, 163, 184, 0.45);
+}
+
+.pretty-dump .pretty-dump-table-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.pretty-dump .pretty-dump-table-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pretty-dump .pretty-dump-table-meta {
+    font-size: 0.75rem;
+    color: rgba(100, 116, 139, 0.95);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table-meta {
+    color: rgba(203, 213, 225, 0.85);
+}
+
+.pretty-dump .pretty-dump-table-close {
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0.25rem;
+    border-radius: 4px;
+}
+
+.pretty-dump .pretty-dump-table-close:hover,
+.pretty-dump .pretty-dump-table-close:focus {
+    background: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table-close:hover,
+[data-theme="dark"] .pretty-dump .pretty-dump-table-close:focus {
+    background: rgba(148, 163, 184, 0.2);
+    color: #93c5fd;
+}
+
+.pretty-dump .pretty-dump-table-container {
+    padding: 1rem;
+    overflow: auto;
+    max-height: 400px;
+}
+
+.pretty-dump .pretty-dump-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.78rem;
+}
+
+.pretty-dump .pretty-dump-table th,
+.pretty-dump .pretty-dump-table td {
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 0.35rem 0.6rem;
+    text-align: left;
+    vertical-align: top;
+    max-width: 320px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table th,
+[data-theme="dark"] .pretty-dump .pretty-dump-table td {
+    border-color: rgba(148, 163, 184, 0.4);
+}
+
+.pretty-dump .pretty-dump-table thead th {
+    background: rgba(37, 99, 235, 0.12);
+    color: #1f2933;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table thead th {
+    background: rgba(37, 99, 235, 0.22);
+    color: #e2e8f0;
+}
+
+.pretty-dump .pretty-dump-table tbody tr:nth-child(even) td {
+    background: rgba(148, 163, 184, 0.08);
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table tbody tr:nth-child(even) td {
+    background: rgba(148, 163, 184, 0.15);
+}
+
+.pretty-dump .pretty-dump-table tbody tr:hover td {
+    background: rgba(37, 99, 235, 0.16);
+}
+
+[data-theme="dark"] .pretty-dump .pretty-dump-table tbody tr:hover td {
+    background: rgba(37, 99, 235, 0.28);
+}

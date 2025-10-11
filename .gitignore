@@ -1,0 +1,92 @@
+/vendor/
+composer.phar
+composer.lock
+
+# IDE 配置文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# PHP 缓存和临时文件
+*.cache
+.phpunit.result.cache
+.php-cs-fixer.cache
+.phpstan/
+phpstan.neon
+
+# Mago 缓存
+.mago/
+mago.cache
+
+# 日志文件
+*.log
+/logs/
+
+# 运行时目录
+/cache/
+/tmp/
+/temp/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 构建产物
+/build/
+/dist/
+*.phar
+
+# 文档构建
+/docs/_build/
+
+# 测试覆盖和输出
+/coverage/
+/.phpunit.cache/
+/tests/_output/
+/tests/_support/_generated/
+
+# 开发工具
+/tools/
+/.tools/
+
+# 操作系统文件
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# 备份文件
+*.bak
+*.backup
+*.orig
+
+# 临时文件
+*.tmp
+*.temp
+*.tempfile
+
+# PHPStan 缓存目录
+/var/
+
+# Codex 开发工具缓存
+.codex/
+
+# Specify 模板和内存文件（开发工具）
+.specify/
+
+# claude
+.claude/
+
+# GitHub 工作流（可选，如果需要可以注释掉）
+# .github/
+
+# Mago 配置缓存
+mago.toml.cache
+
+# 特定于项目的忽略规则
+# 添加任何项目特定的忽略规则在这里

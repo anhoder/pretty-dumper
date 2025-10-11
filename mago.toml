@@ -1,0 +1,59 @@
+# Mago 配置文件 - 专注于核心代码质量
+
+[source]
+paths = ["src"]
+excludes = [
+    "src/autoload/pest-test-suite-loader.php",
+    "src/PrettyDumper/Support/Frameworks/SymfonyBundle.php",
+    "src/PrettyDumper/Support/Frameworks/LaravelServiceProvider.php",
+]
+
+[linter.rules."cyclomatic-complexity"]
+threshold = 160
+
+[linter.rules."kan-defect"]
+threshold = 8.0
+
+[linter.rules."too-many-methods"]
+threshold = 60
+
+[linter.rules."too-many-properties"]
+threshold = 20
+
+[linter.rules."excessive-parameter-list"]
+threshold = 10
+
+[linter.rules."constant-type"]
+enabled = false
+
+[linter.rules."literal-named-argument"]
+enabled = false
+
+[linter.rules."halstead"]
+volume-threshold = 2500.0
+difficulty-threshold = 25.0
+effort-threshold = 15000.0
+
+[linter.rules."prefer-first-class-callable"]
+enabled = false
+
+[linter.rules."yoda-conditions"]
+enabled = false
+
+[linter.rules."no-boolean-literal-comparison"]
+enabled = false
+
+[linter.rules."function-name"]
+enabled = false
+
+[linter.rules."no-boolean-flag-parameter"]
+enabled = false
+
+[linter.rules."no-debug-symbols"]
+enabled = false
+
+[linter.rules."no-else-clause"]
+enabled = false
+
+[linter.rules."interface-name"]
+enabled = false

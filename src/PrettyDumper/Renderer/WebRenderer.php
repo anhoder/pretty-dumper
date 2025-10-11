@@ -1,0 +1,1948 @@
+<?php
+
+declare(strict_types=1);
+
+namespace PrettyDumper\Renderer;
+
+use PrettyDumper\Formatter\DumpRenderRequest;
+use PrettyDumper\Formatter\PrettyFormatter;
+use PrettyDumper\Formatter\RenderedSegment;
+use PrettyDumper\Support\ThemeRegistry;
+
+final class WebRenderer
+{
+    private int $indentSize;
+    private string $indentStyle;
+    private bool $showExpressionMeta = false;
+
+    public function __construct(
+        private PrettyFormatter $formatter,
+        private ThemeRegistry $themes,
+    ) {
+        $config = $this->formatter->configuration();
+        $this->indentSize = $config->indentSize();
+        $this->indentStyle = $config->indentStyle();
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    public function render(DumpRenderRequest $request, array $options = []): string
+    {
+        $options = $this->sanitizeOptions($options);
+        $preferJavascript = $this->evaluateBool($options['preferJavascript'] ?? null, true);
+        $segment = $this->formatter->format($request);
+        $metadata = $segment->metadata();
+        $currentThemeMeta = $metadata['theme'] ?? null;
+        $currentTheme = is_string($currentThemeMeta) && $currentThemeMeta !== '' ? $currentThemeMeta : 'auto';
+
+        $themePreference = $this->stringOption($request->option('theme'), $this->formatter->configuration()->theme());
+        if ($themePreference === '') {
+            $themePreference = 'auto';
+        }
+
+        $showTableMeta = $this->evaluateBool(
+            $request->option('showTableVariableMeta'),
+            $this->formatter->configuration()->showTableVariableMeta(),
+        );
+
+        $this->showExpressionMeta = $showTableMeta;
+
+        $themesMarkup = $this->renderThemePalette();
+        $cssStyles = $this->renderCssStyles($currentTheme);
+
+        $childrenMarkup = '';
+        foreach ($segment->children() as $index => $child) {
+            $childrenMarkup .= $this->renderNode($child, 0, $preferJavascript);
+        }
+
+        return sprintf(
+            "<style>\n%s</style><div class=\"pretty-dump\" role=\"tree\" aria-label=\"Dump output\" data-theme=\"%s\" data-theme-preference=\"%s\" data-table-meta=\"%s\">%s%s</div>%s",
+            $cssStyles,
+            htmlspecialchars($currentTheme, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            htmlspecialchars($themePreference, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $showTableMeta ? '1' : '0',
+            $themesMarkup,
+            $childrenMarkup,
+            $this->interactionScript(),
+        );
+    }
+
+    private function renderThemePalette(): string
+    {
+        $markup = '';
+        foreach ($this->themes->all() as $profile) {
+            $markup .= sprintf(
+                '<span class="theme-profile" data-theme="%s" data-contrast="%0.2f"></span>',
+                htmlspecialchars($profile->name(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                $profile->contrastRatio(),
+            );
+        }
+
+        return $markup;
+    }
+
+    private function renderCssStyles(string $theme): string
+    {
+        $colors = $this->getThemeColors($theme);
+        $isLightTheme = $theme !== 'dark';
+
+        $backgroundColor = $isLightTheme ? '#ffffff' : '#1f2933';
+        $borderColor = $isLightTheme ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.16)';
+        $textColor = $isLightTheme ? '#1f2933' : '#f9fafb';
+        $panelBackground = $isLightTheme ? '#f8fafc' : '#27303f';
+        $mutedColor = $isLightTheme ? '#64748b' : '#cbd5f5';
+        $accentColor = $colors['array'];
+        $noticeColor = $colors['notice'];
+        $keyColor = $colors['key'] ?? $accentColor;
+        $stackFunctionColor = $isLightTheme ? '#475569' : '#cbd5f5';
+        $stackIndexColor = $isLightTheme ? '#94a3b8' : '#7f8ea9';
+        $stackLocationColor = $isLightTheme ? '#a8b4cc' : '#6e809f';
+
+        $css = <<<'CSS'
+            .pretty-dump {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 0.8rem;
+                line-height: 1.45;
+                background-color: __BACKGROUND__;
+                color: __TEXT__;
+                border-radius: 4px;
+                padding: 0.75rem;
+                border: 1px solid __BORDER__;
+                max-width: 100%;
+                overflow-x: auto;
+            }
+
+            .pretty-dump .node-type-array { color: __ARRAY__; font-weight: 600; }
+            .pretty-dump .node-type-object { color: __OBJECT__; font-weight: 600; }
+            .pretty-dump .node-type-string { color: __STRING__; }
+            .pretty-dump .node-type-number { color: __NUMBER__; }
+            .pretty-dump .node-type-bool { color: __BOOL__; font-weight: 600; }
+            .pretty-dump .node-type-null { color: __NULL__; font-style: italic; }
+            .pretty-dump .node-type-unknown { color: __UNKNOWN__; }
+            .pretty-dump .node-type-notice { color: __NOTICE__; font-style: italic; }
+            .pretty-dump .node-type-circular { color: __CIRCULAR__; font-style: italic; }
+            .pretty-dump .node-type-context { color: __CONTEXT__; font-weight: 600; }
+            .pretty-dump .node-type-performance { color: __PERFORMANCE__; font-size: 0.72rem; }
+            .pretty-dump .node-type-exception { color: __EXCEPTION__; }
+
+            .pretty-dump details {
+                margin: 0.25rem 0;
+                padding: 0;
+                border: none;
+                background: transparent;
+            }
+
+            .pretty-dump summary {
+                position: relative;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                font-weight: 600;
+                padding: 0.15rem 0 0.15rem 1rem;
+                list-style: none;
+                color: inherit;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .pretty-dump summary::-webkit-details-marker {
+                display: none;
+            }
+
+            .pretty-dump details > summary::before {
+                content: "▸";
+                display: inline-block;
+                font-size: 0.7rem;
+                transition: transform 0.2s ease;
+                color: __ACCENT__;
+                position: absolute;
+                left: 0;
+            }
+
+            .pretty-dump details[open] > summary::before {
+                content: "▾";
+                transform: none;
+            }
+
+            .pretty-dump details[open] > summary {
+                color: __ACCENT__;
+            }
+
+            .pretty-dump .node-children {
+                margin-left: __INDENT__;
+                border-left: 1px solid __BORDER__;
+                padding-left: __INDENT__;
+            }
+
+            .pretty-dump .node-summary-label,
+            .pretty-dump .node-label {
+                /* flex: 1; */
+                min-width: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .pretty-dump [data-node-type="array"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="array"].node-inline .node-label {
+                color: __ARRAY__;
+            }
+
+            .pretty-dump [data-node-type="object"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="object"].node-inline .node-label {
+                color: __OBJECT__;
+            }
+
+            .pretty-dump [data-node-type="string"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="string"].node-inline .node-label {
+                color: __STRING__;
+            }
+
+            .pretty-dump [data-node-type="array-item"].node-inline .node-label {
+                color: __CONTEXT__;
+            }
+
+            .pretty-dump [data-node-type="number"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="number"].node-inline .node-label {
+                color: __NUMBER__;
+            }
+
+            .pretty-dump [data-node-type="bool"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="bool"].node-inline .node-label {
+                color: __BOOL__;
+            }
+
+            .pretty-dump [data-node-type="null"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="null"].node-inline .node-label {
+                color: __NULL__;
+            }
+
+            .pretty-dump [data-node-type="unknown"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="unknown"].node-inline .node-label {
+                color: __UNKNOWN__;
+            }
+
+            .pretty-dump [data-node-type="context"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="context"].node-inline .node-label {
+                color: __CONTEXT__;
+            }
+
+            .pretty-dump [data-node-type="performance"] > summary .node-summary-label,
+            .pretty-dump [data-node-type="performance"].node-inline .node-label {
+                color: __PERFORMANCE__;
+            }
+
+            .pretty-dump .node-inline {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                padding: 0.15rem 0 0.15rem 1rem;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .pretty-dump .node-key {
+                color: __UNKNOWN__;
+                font-weight: 600;
+            }
+
+            .pretty-dump .node-separator {
+                color: __NOTICE__;
+                opacity: 0.8;
+                margin: 0 0.25rem;
+            }
+
+            .pretty-dump .node-value {
+                font-family: inherit;
+            }
+
+            .pretty-dump .node-type-label {
+                color: __STACK_INDEX__;
+            }
+
+            .pretty-dump .node-value-string { color: __STRING__; }
+            .pretty-dump .node-value-number { color: __NUMBER__; }
+            .pretty-dump .node-value-bool { color: __BOOL__; }
+            .pretty-dump .node-value-null { color: __NULL__; font-style: italic; }
+            .pretty-dump .node-value-unknown { color: __UNKNOWN__; }
+            .pretty-dump .node-value-array { color: __ARRAY__; font-weight: 600; }
+            .pretty-dump .node-value-object { color: __OBJECT__; font-weight: 600; }
+            .pretty-dump .node-value-context { color: __CONTEXT__; }
+            .pretty-dump .node-value-performance {
+                color: __PERFORMANCE__;
+                font-size: 0.65rem;
+            }
+            .pretty-dump .node-value-exception { color: __EXCEPTION__; }
+
+            .pretty-dump .node-expression {
+                color: __STACK_INDEX__;
+                font-style: italic;
+                margin-left: 0.35rem;
+            }
+
+            .pretty-dump .node-key {
+                color: __UNKNOWN__;
+                font-weight: 600;
+            }
+
+            .pretty-dump .node-separator {
+                color: __NOTICE__;
+                opacity: 0.8;
+                margin: 0 0.25rem;
+            }
+
+            .pretty-dump .node-value {
+                font-family: inherit;
+            }
+
+            .pretty-dump .node-value-string { color: __STRING__; }
+            .pretty-dump .node-value-number { color: __NUMBER__; }
+            .pretty-dump .node-value-bool { color: __BOOL__; }
+            .pretty-dump .node-value-null { color: __NULL__; font-style: italic; }
+            .pretty-dump .node-value-unknown { color: __UNKNOWN__; }
+
+            .pretty-dump .node-actions {
+                display: flex;
+                gap: 0.25rem;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+            }
+
+            .pretty-dump summary:hover .node-actions,
+            .pretty-dump summary:focus-within .node-actions,
+            .pretty-dump .node-inline:hover .node-actions,
+            .pretty-dump .node-inline:focus-within .node-actions {
+                opacity: 1;
+            }
+
+            .pretty-dump .node-action {
+                border: none;
+                background: transparent;
+                color: __STACK_INDEX__;
+                cursor: pointer;
+                padding: 0.1rem;
+                border-radius: 3px;
+            }
+
+            .pretty-dump .node-action:hover,
+            .pretty-dump .node-action:focus {
+                background-color: rgba(37, 99, 235, 0.12);
+                color: __ACCENT__;
+            }
+
+            .pretty-dump [data-node-type].search-result-target > summary,
+            .pretty-dump [data-node-type].search-result-target.node-inline {
+                border-radius: 6px;
+                box-shadow: inset 0 0 0 2px __ACCENT__, 0 0 0 4px rgba(37, 99, 235, 0.22);
+                box-shadow: inset 0 0 0 2px __ACCENT__, 0 0 0 4px color-mix(in srgb, __ACCENT__ 22%, transparent 78%);
+                background-color: rgba(37, 99, 235, 0.35);
+                background-color: color-mix(in srgb, __ACCENT__ 35%, transparent 65%);
+            }
+
+            .pretty-dump [data-node-type].search-result-target > summary .node-summary-label,
+            .pretty-dump [data-node-type].search-result-target.node-inline .node-label {
+                color: __ACCENT__;
+                font-weight: 700;
+            }
+
+            .pretty-dump [data-node-type].search-result-context {
+                position: relative;
+                border-radius: 6px;
+                overflow: hidden;
+            }
+
+            .pretty-dump [data-node-type].search-result-context::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: 6px;
+                background-color: rgba(148, 163, 184, 0.08);
+                background-color: color-mix(in srgb, __BORDER__ 12%, transparent 88%);
+                box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25), inset 4px 0 0 rgba(37, 99, 235, 0.45);
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, __BORDER__ 25%, transparent 75%), inset 4px 0 0 color-mix(in srgb, __ACCENT__ 45%, transparent 55%);
+                pointer-events: none;
+                z-index: 0;
+            }
+
+            .pretty-dump [data-node-type].search-result-context > summary,
+            .pretty-dump [data-node-type].search-result-context.node-inline {
+                position: relative;
+                z-index: 1;
+                border-radius: 0;
+            }
+
+            .pretty-dump [data-node-type].search-result-context > summary {
+                color: __TEXT__;
+            }
+
+            .pretty-dump [data-node-type].search-result-context > summary .node-summary-label,
+            .pretty-dump [data-node-type].search-result-context.node-inline .node-label {
+                color: __STACK_INDEX__;
+                font-weight: 600;
+            }
+
+            .pretty-dump .pretty-dump-table-panel {
+                margin-top: 1rem;
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .pretty-dump .pretty-dump-table-card {
+                border: 1px solid __BORDER__;
+                border-radius: 8px;
+                background: __BACKGROUND__;
+                box-shadow: 0 12px 35px rgba(15, 23, 42, 0.2);
+                overflow: hidden;
+            }
+
+            .pretty-dump .pretty-dump-table-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 1rem;
+                padding: 0.75rem 1rem;
+                background: __PANEL_BG__;
+                border-bottom: 1px solid __BORDER__;
+            }
+
+            .pretty-dump .pretty-dump-table-heading {
+                display: flex;
+                flex-direction: column;
+                gap: 0.15rem;
+                min-width: 0;
+            }
+
+            .pretty-dump .pretty-dump-table-title {
+                font-weight: 600;
+                font-size: 0.9rem;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .pretty-dump .pretty-dump-table-meta {
+                font-size: 0.75rem;
+                color: __STACK_INDEX__;
+                opacity: 0.9;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .pretty-dump .pretty-dump-table-close {
+                border: none;
+                background: transparent;
+                color: __STACK_INDEX__;
+                cursor: pointer;
+                font-size: 0.95rem;
+                line-height: 1;
+                padding: 0.25rem;
+                border-radius: 4px;
+            }
+
+            .pretty-dump .pretty-dump-table-close:hover,
+            .pretty-dump .pretty-dump-table-close:focus {
+                background: rgba(37, 99, 235, 0.12);
+                color: __ACCENT__;
+            }
+
+            .pretty-dump .pretty-dump-table-container {
+                padding: 1rem;
+                overflow: auto;
+                background: __BACKGROUND__;
+                max-height: 400px;
+            }
+
+            .pretty-dump .pretty-dump-table {
+                border-collapse: collapse;
+                width: 100%;
+                font-family: inherit;
+                font-size: 0.78rem;
+                color: inherit;
+            }
+
+            .pretty-dump .pretty-dump-table th,
+            .pretty-dump .pretty-dump-table td {
+                border: 1px solid __BORDER__;
+                padding: 0.35rem 0.6rem;
+                text-align: left;
+                vertical-align: top;
+                max-width: 320px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .pretty-dump .pretty-dump-table thead th {
+                background: rgba(37, 99, 235, 0.12);
+                background: color-mix(in srgb, __ACCENT__ 16%, transparent 84%);
+                color: __ACCENT__;
+                position: sticky;
+                top: 0;
+                z-index: 1;
+            }
+
+            .pretty-dump .pretty-dump-table tbody tr:nth-child(even) td {
+                background: rgba(148, 163, 184, 0.08);
+                background: color-mix(in srgb, __PANEL_BG__ 65%, transparent 35%);
+            }
+
+            .pretty-dump .pretty-dump-table tbody tr:hover td {
+                background: rgba(37, 99, 235, 0.14);
+                background: color-mix(in srgb, __ACCENT__ 14%, transparent 86%);
+            }
+
+            .pretty-dump .truncate-notice {
+                color: __NOTICE__;
+                font-style: italic;
+                padding-left: 1.4rem;
+            }
+
+            .pretty-dump pre {
+                margin: 0.4rem 0;
+                padding: 0.5rem;
+                background-color: __PANEL_BG__;
+                border-radius: 4px;
+                font-family: inherit;
+                font-size: inherit;
+                line-height: inherit;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .pretty-dump .exception-trace {
+                border: 1px solid __BORDER__;
+                border-radius: 4px;
+                margin: 0.75rem 0;
+                background: __PANEL_BG__;
+            }
+
+            .pretty-dump .exception-trace summary {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.78rem;
+            }
+
+            .pretty-dump .exception-header {
+                padding: 0.6rem 0.75rem;
+                border-bottom: 1px solid __BORDER__;
+            }
+
+            .pretty-dump .stack-frames {
+                max-height: 320px;
+                overflow-y: auto;
+                background: transparent;
+            }
+
+            .pretty-dump .stack-frame {
+                padding: 0.35rem 0.75rem;
+                border-top: 1px solid __BORDER__;
+                font-size: 0.65rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.15rem;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                color: __STACK_FUNCTION__;
+            }
+
+            .pretty-dump .stack-frame:first-child {
+                border-top: none;
+            }
+
+            .pretty-dump .stack-index {
+                font-weight: 500;
+                color: __STACK_INDEX__;
+                font-size: 0.6rem;
+                opacity: 0.9;
+            }
+
+            .pretty-dump .stack-function {
+                color: __STACK_FUNCTION__;
+                font-family: inherit;
+                font-size: 0.68rem;
+                font-weight: 500;
+            }
+
+            .pretty-dump .stack-location {
+                color: __STACK_LOCATION__;
+                font-size: 0.6rem;
+                opacity: 0.85;
+                font-family: inherit;
+            }
+
+            .pretty-dump .context-block {
+                border: 1px solid __BORDER__;
+                border-radius: 4px;
+                color: #6b7280;
+                font-size: 0.68rem;
+            }
+
+            .pretty-dump .context-header {
+                background: __PANEL_BG__;
+                border-bottom: 1px solid __BORDER__;
+                padding: 0.5rem;
+                font-weight: 600;
+            }
+
+            .pretty-dump .context-content {
+                padding: 0.25rem 0.75rem 0.75rem;
+            }
+
+            .pretty-dump .context-pre {
+                margin: 0;
+                padding: 0.5rem;
+                background-color: __PANEL_BG__;
+                border-radius: 4px;
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                font-size: 0.68rem;
+                line-height: 1.4;
+                color: __STACK_FUNCTION__;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .pretty-dump .theme-profile {
+                display: none;
+            }
+        CSS;
+
+        return strtr($css, [
+            '__BACKGROUND__' => $backgroundColor,
+            '__TEXT__' => $textColor,
+            '__BORDER__' => $borderColor,
+            '__ARRAY__' => $colors['array'],
+            '__OBJECT__' => $colors['object'],
+            '__STRING__' => $colors['string'],
+            '__NUMBER__' => $colors['number'],
+            '__BOOL__' => $colors['bool'],
+            '__NULL__' => $colors['null'],
+            '__UNKNOWN__' => $colors['unknown'],
+            '__NOTICE__' => $noticeColor,
+            '__CIRCULAR__' => $colors['circular'],
+            '__CONTEXT__' => $keyColor,
+            '__PERFORMANCE__' => $colors['performance'] ?? $mutedColor,
+            '__EXCEPTION__' => $colors['exception'] ?? $colors['object'],
+            '__ACCENT__' => $accentColor,
+            '__INDENT__' => $this->getIndentSpacing(),
+            '__PANEL_BG__' => $panelBackground,
+            '__STACK_FUNCTION__' => $stackFunctionColor,
+            '__STACK_LOCATION__' => $stackLocationColor,
+            '__STACK_INDEX__' => $stackIndexColor,
+        ]);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function getThemeColors(string $theme): array
+    {
+        // 根据主题返回颜色配置，与CLI端保持一致
+        $isLightTheme = $theme !== 'dark';
+
+        if ($isLightTheme) {
+            return [
+                'array' => '#2563eb',      // 蓝色 - 数组
+                'object' => '#dc2626',     // 红色 - 对象
+                'string' => '#059669',     // 绿色 - 字符串
+                'number' => '#7c3aed',     // 紫色 - 数字
+                'bool' => '#0891b2',       // 青色 - 布尔值
+                'null' => '#6b7280',       // 灰色 - null
+                'unknown' => '#f59e0b',    // 黄色 - unknown
+                'notice' => '#9ca3af',     // 浅灰色 - 通知
+                'circular' => '#9ca3af',   // 浅灰色 - 循环引用
+                'key' => '#059669',        // 绿色 - 键名
+                'performance' => '#6b7280', // 灰色 - 性能信息
+                'exception' => '#dc2626',  // 红色 - 异常
+            ];
+        }
+
+        return [
+            'array' => '#60a5fa',      // 浅蓝色 - 数组
+            'object' => '#f87171',     // 浅红色 - 对象
+            'string' => '#34d399',     // 浅绿色 - 字符串
+            'number' => '#a78bfa',     // 浅紫色 - 数字
+            'bool' => '#22d3ee',       // 浅青色 - 布尔值
+            'null' => '#9ca3af',       // 浅灰色 - null
+            'unknown' => '#fbbf24',    // 浅黄色 - unknown
+            'notice' => '#9ca3af',     // 浅灰色 - 通知
+            'circular' => '#9ca3af',   // 浅灰色 - 循环引用
+            'key' => '#34d399',        // 浅绿色 - 键名
+            'performance' => '#9ca3af', // 浅灰色 - 性能信息
+            'exception' => '#f87171',  // 浅红色 - 异常
+        ];
+    }
+
+    private function getIndentSpacing(): string
+    {
+        if ($this->indentStyle === 'tabs') {
+            return '2rem'; // Tab对应更大的缩进
+        }
+
+        // 根据空格数量计算缩进（1rem ≈ 4空格）
+        $remSize = $this->indentSize / 4;
+        return sprintf('%srem', $remSize);
+    }
+
+    private function renderNode(RenderedSegment $segment, int $depth, bool $preferJavascript): string
+    {
+        $metadata = $segment->metadata();
+
+        $attributes = [
+            'data-node-type' => $segment->type(),
+            'data-depth' => (string) $depth,
+            'class' => sprintf('node-type-%s', $segment->type()),
+        ];
+
+        if ($this->evaluateBool($metadata['truncated'] ?? false, false)) {
+            $attributes['data-truncated'] = 'true';
+        }
+
+        $expression = $this->expressionMeta($segment);
+        if ($expression !== null) {
+            $attributes['data-expression'] = $expression;
+        }
+
+        if (array_key_exists('jsonValue', $metadata)) {
+            $jsonAttribute = $this->encodeJsonAttribute($metadata['jsonValue']);
+            if ($jsonAttribute !== null) {
+                $attributes['data-json'] = $jsonAttribute;
+            }
+        }
+
+        if ($segment->type() === 'exception') {
+            $attributes['aria-label'] = 'Exception trace';
+            $attributes['class'] .= ' exception-trace';
+        }
+
+        $attrString = $this->attributesToString($attributes);
+        $content = htmlspecialchars($segment->content(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        if ($segment->type() === 'exception') {
+            return $this->renderExceptionTrace($segment, $attrString, $content);
+        }
+
+        $children = $segment->children();
+
+        if ($children === []) {
+            if ($segment->type() === 'context') {
+                $summaryClass = $preferJavascript ? 'node-summary' : 'node-summary keyboard-focusable';
+                $headerContent = 'Context Information';
+                if ($this->evaluateBool($metadata['truncatedStack'] ?? false, false)) {
+                    $headerContent .= ' (truncated)';
+                }
+
+                $formattedLines = array_map(
+                    fn (string $line): string => $this->escape($line),
+                    explode("\n", $segment->content()),
+                );
+                $formattedContent = sprintf('<pre class="context-pre">%s</pre>', implode("\n", $formattedLines));
+
+                $contextAttributes = $attributes;
+                $contextAttributes['class'] .= ' context-block';
+                $contextAttrString = $this->attributesToString($contextAttributes);
+
+                return sprintf(
+                    '<details %s><summary class="%s">%s</summary><div class="context-content">%s</div></details>',
+                    $contextAttrString,
+                    $summaryClass,
+                    $this->escape($headerContent),
+                    $formattedContent,
+                );
+            }
+
+            $attributes['class'] .= ' node-inline';
+            $attrString = $this->attributesToString($attributes);
+
+            return sprintf('<div %s>%s%s</div>', $attrString, $this->renderValueSpan($segment), $this->renderNodeActions($segment, $depth));
+        }
+
+        if ($segment->type() === 'array-item') {
+            $valueSegment = $children[0];
+
+            if ($valueSegment->children() === []) {
+                $attributes['class'] .= ' node-inline';
+                $attrString = $this->attributesToString($attributes);
+
+                return sprintf(
+                    '<div %s>%s%s</div>',
+                    $attrString,
+                    $this->renderArrayItemInlineContent($segment, $valueSegment, $depth),
+                    $this->renderNodeActions($segment, $depth),
+                );
+            }
+
+            $attributes['class'] .= ' node-branch';
+            if ($this->evaluateBool($valueSegment->metadata()['truncated'] ?? false, false)) {
+                $attributes['data-truncated'] = 'true';
+            }
+
+            $attrString = $this->attributesToString($attributes);
+            $summaryHtml = $this->renderArrayItemInlineContent($segment, $valueSegment, $depth);
+            $childMarkup = $this->renderSegmentChildren($valueSegment, $depth + 1, $preferJavascript);
+
+            return sprintf(
+                '<details %s><summary class="node-summary">%s%s</summary><div class="node-children">%s</div></details>',
+                $attrString,
+                $summaryHtml,
+                $this->renderNodeActions($segment, $depth),
+                $childMarkup,
+            );
+        }
+
+        $summaryClass = $preferJavascript ? 'node-summary' : 'node-summary keyboard-focusable';
+        $childMarkup = '';
+        foreach ($children as $child) {
+            if (in_array($child->type(), ['notice', 'circular'], true)) {
+                $childMarkup .= sprintf(
+                    '<div class="truncate-notice" aria-live="polite">%s</div>',
+                    $this->escape($child->content()),
+                );
+
+                continue;
+            }
+
+            $childMarkup .= $this->renderNode($child, $depth + 1, $preferJavascript);
+        }
+
+        $attrString = $this->attributesToString($attributes);
+
+        return sprintf(
+            '<details %s><summary class="%s"><span class="node-summary-label">%s</span>%s</summary><div class="node-children">%s</div></details>',
+            $attrString,
+            $summaryClass,
+            $this->renderSummaryLabel($segment, $depth),
+            $this->renderNodeActions($segment, $depth),
+            $childMarkup,
+        );
+    }
+
+    /**
+     * @param array<string, string> $attributes
+     */
+    private function attributesToString(array $attributes): string
+    {
+        $parts = [];
+        foreach ($attributes as $key => $value) {
+            $parts[] = sprintf('%s="%s"', $key, htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        }
+
+        return implode(' ', $parts);
+    }
+
+    private function renderSummaryLabel(RenderedSegment $segment, int $depth): string
+    {
+        $expression = $this->expressionMeta($segment);
+
+        if ($segment->type() === 'array-item') {
+            $valueSegment = $segment->children()[0] ?? null;
+            $keyHtml = sprintf('<span class="node-key">%s</span>', $this->escape($segment->content()));
+
+            if ($valueSegment === null) {
+                return $keyHtml . $this->renderExpressionHtml($expression);
+            }
+
+            $separator = '<span class="node-separator">⇒</span>';
+            $valueHtml = $this->renderValueSpan($valueSegment);
+
+            return $keyHtml . ' ' . $separator . ' ' . $valueHtml;
+        }
+
+        return $this->renderValueSpan($segment);
+    }
+
+    private function truncateLabel(string $label, int $limit = 96): string
+    {
+        if (mb_strlen($label) <= $limit) {
+            return $label;
+        }
+
+        return rtrim(mb_strimwidth($label, 0, $limit, '…', 'UTF-8'));
+    }
+
+    private function renderNodeActions(RenderedSegment $segment, int $depth): string
+    {
+        $metadata = $segment->metadata();
+        if (!array_key_exists('jsonValue', $metadata)) {
+            return '';
+        }
+
+        $expressionValue = $this->expressionMeta($segment) ?? $segment->content();
+        $searchLabel = $this->escapeAttr(sprintf('Search within %s', $this->truncateLabel($expressionValue, 40)));
+        $copyLabel = $this->escapeAttr(sprintf('Copy %s as JSON', $this->truncateLabel($expressionValue, 40)));
+
+        $buttons = [
+            sprintf('<button type="button" class="node-action" data-action="search" aria-label="%s" title="Search">🔍</button>', $searchLabel),
+            sprintf('<button type="button" class="node-action" data-action="copy" aria-label="%s" title="Copy as JSON">📋</button>', $copyLabel),
+        ];
+
+        if ($this->isTabularJsonStructure($metadata['jsonValue'])) {
+            $tableLabel = $this->escapeAttr(sprintf('Render %s as table', $this->truncateLabel($expressionValue, 40)));
+            $buttons[] = sprintf('<button type="button" class="node-action" data-action="table" aria-label="%s" title="Render as table">📊</button>', $tableLabel);
+        }
+
+        return sprintf('<span class="node-actions">%s</span>', implode('', $buttons));
+    }
+
+    private function isTabularJsonStructure(mixed $value): bool
+    {
+        if (!is_array($value)) {
+            return false;
+        }
+
+        if (isset($value['__items__']) && is_array($value['__items__'])) {
+            $value = $value['__items__'];
+        }
+
+        $rows = [];
+        foreach ($value as $key => $row) {
+            if (is_string($key) && \str_starts_with($key, '__')) {
+                continue;
+            }
+            $rows[] = $row;
+        }
+
+        if ($rows === []) {
+            return false;
+        }
+
+        $columns = [];
+
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                return false;
+            }
+
+            $normalised = $this->normaliseTabularRow($row);
+            if ($normalised === null) {
+                return false;
+            }
+
+            foreach ($normalised as $columnKey => $cell) {
+                if (!$this->isTabularCellValue($cell)) {
+                    return false;
+                }
+
+                $columns[$columnKey] = true;
+            }
+        }
+
+        return $columns !== [];
+    }
+
+    /**
+     * @param array<array-key, mixed> $row
+     * @return array<string, mixed>|null
+     */
+    private function normaliseTabularRow(array $row): ?array
+    {
+        if (isset($row['__items__']) && is_array($row['__items__'])) {
+            $row = $row['__items__'];
+        }
+
+        $result = [];
+
+        if (isset($row['properties']) && is_array($row['properties'])) {
+            foreach ($row['properties'] as $key => $value) {
+                if (is_string($key) && \str_starts_with($key, '__')) {
+                    continue;
+                }
+
+                $result[(string) $key] = $value;
+            }
+        }
+
+        foreach ($row as $key => $value) {
+            if ($key === 'properties') {
+                continue;
+            }
+
+            if (is_string($key) && \str_starts_with($key, '__')) {
+                continue;
+            }
+
+            $result[(string) $key] = $value;
+        }
+
+        if ($result === []) {
+            return null;
+        }
+
+        return $result;
+    }
+
+    private function isTabularCellValue(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        if (is_scalar($value)) {
+            return true;
+        }
+
+        if (is_array($value)) {
+            return true;
+        }
+
+        if (is_object($value)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function encodeJsonAttribute(mixed $value): ?string
+    {
+        $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+
+        if ($encoded === false) {
+            return null;
+        }
+
+        return $encoded;
+    }
+
+    private function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function escapeAttr(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    private function renderArrayItemInlineContent(RenderedSegment $segment, RenderedSegment $valueSegment, int $depth): string
+    {
+        $key = sprintf('<span class="node-key">%s</span>', $this->escape($segment->content()));
+        $separator = '<span class="node-separator">⇒</span>';
+        $value = $this->renderValueSpan($valueSegment);
+
+        return $key . ' ' . $separator . ' ' . $value;
+    }
+
+    private function renderSegmentChildren(RenderedSegment $segment, int $depth, bool $preferJavascript): string
+    {
+        if ($segment->children() === []) {
+            return '';
+        }
+
+        $childMarkup = '';
+        foreach ($segment->children() as $child) {
+            if (in_array($child->type(), ['notice', 'circular'], true)) {
+                $childMarkup .= sprintf(
+                    '<div class="truncate-notice" aria-live="polite">%s</div>',
+                    $this->escape($child->content()),
+                );
+
+                continue;
+            }
+
+            $childMarkup .= $this->renderNode($child, $depth, $preferJavascript);
+        }
+
+        return $childMarkup;
+    }
+
+    private function renderValueSpan(RenderedSegment $segment): string
+    {
+        $classes = ['node-value'];
+        $typeClass = match ($segment->type()) {
+            'string' => 'node-value-string',
+            'number' => 'node-value-number',
+            'bool' => 'node-value-bool',
+            'null' => 'node-value-null',
+            'unknown' => 'node-value-unknown',
+            'array' => 'node-value-array',
+            'object' => 'node-value-object',
+            'context' => 'node-value-context',
+            'performance' => 'node-value-performance',
+            'exception' => 'node-value-exception',
+            default => null,
+        };
+
+        if ($typeClass !== null) {
+            $classes[] = $typeClass;
+        }
+
+        $content = $segment->content();
+        $html = '';
+
+        if (preg_match('/^(?<type>[a-z]+\(.*?\))\s+(?<value>.+)$/i', $content, $match)) {
+            $typeLabel = $match['type'];
+            $valueContent = $match['value'];
+            $html .= sprintf('<span class="node-type-label">%s</span> ', $this->escape($typeLabel));
+            $content = $valueContent;
+        }
+
+        $html .= sprintf('<span class="%s">%s</span>', implode(' ', $classes), $this->escape($content));
+
+        $expression = $this->expressionMeta($segment);
+        $htmlExpression = $this->renderExpressionHtml($expression);
+        if ($htmlExpression !== '') {
+            $html .= $htmlExpression;
+        }
+
+        return $html;
+    }
+
+    private function renderExpressionHtml(?string $expression): string
+    {
+        if (!$this->showExpressionMeta) {
+            return '';
+        }
+
+        if ($expression === null || $expression === '') {
+            return '';
+        }
+
+        return sprintf('<span class="node-expression">(%s)</span>', $this->escape($expression));
+    }
+
+    /**
+     * 格式化函数参数显示
+     * @param array<int|string, mixed> $args
+     */
+    private function formatArguments(array $args): string
+    {
+        if ($args === []) {
+            return '';
+        }
+
+        $formatted = [];
+        foreach ($args as $arg) {
+            if (is_string($arg)) {
+                $formatted[] = sprintf('\'%s\'', htmlspecialchars($arg, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+            } elseif (is_numeric($arg)) {
+                $formatted[] = (string)$arg;
+            } elseif (is_bool($arg)) {
+                $formatted[] = $arg ? 'true' : 'false';
+            } elseif (is_null($arg)) {
+                $formatted[] = 'null';
+            } elseif (is_array($arg)) {
+                $formatted[] = 'Array';
+            } elseif (is_object($arg)) {
+                $formatted[] = get_class($arg);
+            } else {
+                $formatted[] = gettype($arg);
+            }
+        }
+
+        return implode(', ', $formatted);
+    }
+
+    /**
+     * 渲染异常跟踪信息 - 使用完整的堆栈帧数据
+     */
+    private function renderExceptionTrace(RenderedSegment $segment, string $attrString, string $content): string
+    {
+        $stackFramesMeta = $segment->metadata()['stackFrames'] ?? [];
+        $framesMarkup = '';
+
+        if (is_array($stackFramesMeta) && $stackFramesMeta !== []) {
+            $framesMarkup = '<div class="stack-frames">';
+
+            foreach ($stackFramesMeta as $index => $frame) {
+                if (!is_array($frame)) {
+                    continue;
+                }
+
+                $functionName = isset($frame['function']) && is_string($frame['function']) ? $frame['function'] : 'unknown';
+                $fileName = isset($frame['file']) && is_string($frame['file']) ? $frame['file'] : 'unknown';
+                $lineNumber = isset($frame['line']) && is_numeric($frame['line']) ? (int) $frame['line'] : 0;
+                $className = isset($frame['class']) && is_string($frame['class']) ? $frame['class'] : null;
+                $typeSeparator = isset($frame['type']) && is_string($frame['type']) ? $frame['type'] : '';
+
+                $fullFunction = $className !== null
+                    ? sprintf('%s%s%s', $className, $typeSeparator, $functionName)
+                    : $functionName;
+
+                $args = isset($frame['args']) && is_array($frame['args']) ? $frame['args'] : [];
+                $argsStr = $this->formatArguments($args);
+
+                $framesMarkup .= sprintf(
+                    '<div class="stack-frame">' .
+                    '<div class="stack-index">#%d</div>' .
+                    '<div class="stack-function">%s(%s)</div>' .
+                    '<div class="stack-location">%s:%s</div>' .
+                    '</div>',
+                    $index,
+                    htmlspecialchars($fullFunction, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    $argsStr,
+                    htmlspecialchars($fileName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    htmlspecialchars((string) $lineNumber, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                );
+            }
+
+            $framesMarkup .= '</div>';
+        }
+
+        // 保留原始的异常信息文本作为头部
+        return sprintf(
+            '<details %s open>' .
+            '<summary class="node-summary">Exception Details</summary>' .
+            '<div class="exception-header">' .
+            '<pre>%s</pre>' .
+            '</div>' .
+            '%s' .
+            '</details>',
+            $attrString,
+            $content,
+            $framesMarkup
+        );
+    }
+
+    /**
+     * @param array<int|string, mixed> $options
+     * @return array<string, mixed>
+     */
+    private function sanitizeOptions(array $options): array
+    {
+        $sanitized = [];
+
+        foreach ($options as $key => $value) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            $sanitized[$key] = $value;
+        }
+
+        return $sanitized;
+    }
+
+    private function expressionMeta(RenderedSegment $segment): ?string
+    {
+        $metadata = $segment->metadata();
+        $expression = $metadata['expression'] ?? null;
+
+        return is_string($expression) && $expression !== '' ? $expression : null;
+    }
+
+    private function evaluateBool(mixed $value, bool $default): bool
+    {
+        if ($value === null) {
+            return $default;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            $parsed = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($parsed !== null) {
+                return $parsed;
+            }
+        }
+
+        if (is_numeric($value)) {
+            return (int) $value !== 0;
+        }
+
+        return $default;
+    }
+
+    private function stringOption(mixed $value, string $default): string
+    {
+        return is_string($value) ? $value : $default;
+    }
+
+    private function interactionScript(): string
+    {
+        return <<<'SCRIPT'
+<script>(function(){
+  var dumps=document.querySelectorAll('.pretty-dump');
+  var promptOverlay=null;
+  var promptLabel=null;
+  var promptInput=null;
+  var promptConfirm=null;
+  var promptCancel=null;
+  var promptResolve=null;
+  var toastContainer=null;
+  var lastSearchTerm='';
+
+  dumps.forEach(function(dump){
+    applyTheme(dump);
+    dump._tableMetaEnabled=dump.getAttribute('data-table-meta')==='1';
+    dump.addEventListener('click',function(event){
+      var target=event.target instanceof Element?event.target:null;
+      if(!target){return;}
+      var button=target.closest('.node-action');
+      if(!button){return;}
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      var node=button.closest('[data-node-type]');
+      if(!node){return;}
+
+      var action=button.getAttribute('data-action');
+      if(action==='search'){
+        showPrompt('Search within value','Enter search text',lastSearchTerm).then(function(term){
+          if(typeof term!=='string'||term.trim()===''){
+            return;
+          }
+          lastSearchTerm=term;
+          performSearch(dump,node,term);
+        });
+        return;
+      }
+
+      if(action==='copy'){
+        copyNodeJson(node);
+        return;
+      }
+
+      if(action==='table'){
+        renderNodeTable(node);
+        return;
+      }
+    },true);
+  });
+
+  function applyTheme(dump){
+    var palette=dump.querySelectorAll('.theme-profile');
+    if(!palette.length){return;}
+    var preference=dump.getAttribute('data-theme-preference')||'auto';
+    if(preference!=='auto'){
+      dump.setAttribute('data-theme',preference);
+      if(dump._tablePanel){
+        dump._tablePanel.setAttribute('data-theme',preference);
+      }
+      ensureThemeObserver(dump);
+      return;
+    }
+
+    var rootTheme=document.documentElement.getAttribute('data-theme');
+    var prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var targetTheme=rootTheme==='dark'||rootTheme==='light'?rootTheme:(prefersDark?'dark':'light');
+    dump.setAttribute('data-theme',targetTheme);
+    if(dump._tablePanel){
+      dump._tablePanel.setAttribute('data-theme',targetTheme);
+    }
+    ensureThemeObserver(dump);
+  }
+
+  function ensurePrompt(){
+    if(promptOverlay){return;}
+    promptOverlay=document.createElement('div');
+    promptOverlay.style.position='fixed';
+    promptOverlay.style.inset='0';
+    promptOverlay.style.background='rgba(15,23,42,0.35)';
+    promptOverlay.style.display='none';
+    promptOverlay.style.alignItems='center';
+    promptOverlay.style.justifyContent='center';
+    promptOverlay.style.zIndex='9999';
+
+    var dialog=document.createElement('div');
+    dialog.style.background='#ffffff';
+    dialog.style.borderRadius='8px';
+    dialog.style.boxShadow='0 10px 40px rgba(15,23,42,0.25)';
+    dialog.style.padding='20px';
+    dialog.style.width='min(90vw,320px)';
+    dialog.style.display='flex';
+    dialog.style.flexDirection='column';
+    dialog.style.gap='12px';
+    dialog.style.fontFamily='inherit';
+
+    promptLabel=document.createElement('div');
+    promptLabel.style.fontWeight='600';
+    promptLabel.style.fontSize='0.95rem';
+
+    promptInput=document.createElement('input');
+    promptInput.type='text';
+    promptInput.style.padding='8px 10px';
+    promptInput.style.border='1px solid rgba(148,163,184,0.6)';
+    promptInput.style.borderRadius='6px';
+    promptInput.style.fontSize='0.9rem';
+    promptInput.style.fontFamily='inherit';
+
+    var buttonRow=document.createElement('div');
+    buttonRow.style.display='flex';
+    buttonRow.style.justifyContent='flex-end';
+    buttonRow.style.gap='8px';
+
+    promptCancel=document.createElement('button');
+    promptCancel.type='button';
+    promptCancel.textContent='Cancel';
+    promptCancel.style.padding='6px 12px';
+    promptCancel.style.border='1px solid rgba(148,163,184,0.6)';
+    promptCancel.style.background='#fff';
+    promptCancel.style.borderRadius='6px';
+    promptCancel.style.cursor='pointer';
+
+    promptConfirm=document.createElement('button');
+    promptConfirm.type='button';
+    promptConfirm.textContent='Search';
+    promptConfirm.style.padding='6px 12px';
+    promptConfirm.style.border='none';
+    promptConfirm.style.background='#2563eb';
+    promptConfirm.style.color='#fff';
+    promptConfirm.style.borderRadius='6px';
+    promptConfirm.style.cursor='pointer';
+
+    buttonRow.appendChild(promptCancel);
+    buttonRow.appendChild(promptConfirm);
+
+    dialog.appendChild(promptLabel);
+    dialog.appendChild(promptInput);
+    dialog.appendChild(buttonRow);
+    promptOverlay.appendChild(dialog);
+    document.body.appendChild(promptOverlay);
+
+    promptOverlay.addEventListener('click',function(event){
+      if(event.target===promptOverlay){
+        closePrompt(null);
+      }
+    });
+
+    promptCancel.addEventListener('click',function(){
+      closePrompt(null);
+    });
+
+    promptConfirm.addEventListener('click',function(){
+      closePrompt(promptInput.value);
+    });
+
+    promptInput.addEventListener('keydown',function(event){
+      if(event.key==='Enter'){
+        event.preventDefault();
+        closePrompt(promptInput.value);
+      }
+      if(event.key==='Escape'){
+        event.preventDefault();
+        closePrompt(null);
+      }
+    });
+  }
+
+  function showPrompt(message,placeholder,defaultValue){
+    ensurePrompt();
+    promptLabel.textContent=message;
+    promptInput.placeholder=placeholder||'';
+    promptInput.value=defaultValue||'';
+    promptOverlay.style.display='flex';
+    setTimeout(function(){promptInput.focus();promptInput.select();},0);
+
+    return new Promise(function(resolve){
+      promptResolve=resolve;
+    });
+  }
+
+  function closePrompt(value){
+    if(!promptOverlay){return;}
+    promptOverlay.style.display='none';
+    if(typeof promptResolve==='function'){
+      var resolver=promptResolve;
+      promptResolve=null;
+      resolver(value);
+    }
+  }
+
+  function ensureToastContainer(){
+    if(toastContainer){return;}
+    toastContainer=document.createElement('div');
+    toastContainer.style.position='fixed';
+    toastContainer.style.bottom='16px';
+    toastContainer.style.right='16px';
+    toastContainer.style.display='flex';
+    toastContainer.style.flexDirection='column';
+    toastContainer.style.gap='8px';
+    toastContainer.style.zIndex='10000';
+    document.body.appendChild(toastContainer);
+  }
+
+  function showToast(message,type){
+    ensureToastContainer();
+    var toast=document.createElement('div');
+    toast.textContent=message;
+    toast.style.padding='10px 14px';
+    toast.style.borderRadius='6px';
+    toast.style.fontSize='0.85rem';
+    toast.style.color='#f8fafc';
+    toast.style.background=type==='error'?'#dc2626':'#2563eb';
+    toast.style.boxShadow='0 8px 20px rgba(15,23,42,0.25)';
+    toast.style.opacity='0';
+    toast.style.transition='opacity 0.25s ease';
+    toastContainer.appendChild(toast);
+    requestAnimationFrame(function(){toast.style.opacity='1';});
+    setTimeout(function(){
+      toast.style.opacity='0';
+      setTimeout(function(){
+        if(toast.parentNode){toast.parentNode.removeChild(toast);}
+      },250);
+    },2500);
+  }
+
+  function renderNodeTable(node){
+    var raw=node.getAttribute('data-json');
+    if(!raw){
+      showToast('Table view unavailable for this value.','error');
+      return;
+    }
+
+    var dataset=buildTabularDataset(raw);
+    if(!dataset){
+      showToast('Not a compatible 2D array structure.','error');
+      return;
+    }
+
+    var dump=node.closest('.pretty-dump');
+    if(!dump){
+      return;
+    }
+
+    var panel=ensureTablePanel(dump);
+    var showMeta=dump._tableMetaEnabled===true;
+
+    var label=node.querySelector('.node-summary-label, .node-label');
+    var title=label&&label.textContent?label.textContent.trim():'Array';
+    var expression=node.getAttribute('data-expression')||title;
+
+    var existingCards=panel.querySelectorAll('.pretty-dump-table-card');
+    var card=null;
+    for(var i=0;i<existingCards.length;i+=1){
+      if(existingCards[i].dataset.expression===expression){
+        card=existingCards[i];
+        break;
+      }
+    }
+
+    if(!card){
+      card=document.createElement('section');
+      card.className='pretty-dump-table-card';
+      card.dataset.expression=expression;
+
+      var header=document.createElement('div');
+      header.className='pretty-dump-table-header';
+
+      var heading=document.createElement('div');
+      heading.className='pretty-dump-table-heading';
+
+      var titleEl=document.createElement('div');
+      titleEl.className='pretty-dump-table-title';
+      heading.appendChild(titleEl);
+
+      var metaEl=null;
+      if(showMeta){
+        metaEl=document.createElement('div');
+        metaEl.className='pretty-dump-table-meta';
+        heading.appendChild(metaEl);
+      }
+
+      header.appendChild(heading);
+
+      var closeButton=document.createElement('button');
+      closeButton.type='button';
+      closeButton.className='pretty-dump-table-close';
+      closeButton.setAttribute('aria-label','Remove table view');
+      closeButton.textContent='✕';
+      closeButton.addEventListener('click',function(){
+        if(card.parentNode){
+          card.parentNode.removeChild(card);
+        }
+        if(dump._tablePanel && !dump._tablePanel.children.length){
+          dump._tablePanel.remove();
+          dump._tablePanel=null;
+        }
+      });
+      header.appendChild(closeButton);
+
+      var container=document.createElement('div');
+      container.className='pretty-dump-table-container';
+
+      card.appendChild(header);
+      card.appendChild(container);
+      panel.appendChild(card);
+
+      card._headingEl=heading;
+      card._titleEl=titleEl;
+      card._metaEl=metaEl;
+    } else {
+      if(!card._headingEl){card._headingEl=card.querySelector('.pretty-dump-table-heading');}
+      if(!card._titleEl){card._titleEl=card.querySelector('.pretty-dump-table-title');}
+
+      if(showMeta){
+        if(!card._metaEl){
+          var metaHolder=card._headingEl||card.querySelector('.pretty-dump-table-heading');
+          if(metaHolder){
+            card._metaEl=document.createElement('div');
+            card._metaEl.className='pretty-dump-table-meta';
+            metaHolder.appendChild(card._metaEl);
+          }
+        }
+      } else if(card._metaEl){
+        if(card._metaEl.parentNode){
+          card._metaEl.parentNode.removeChild(card._metaEl);
+        }
+        card._metaEl=null;
+      }
+    }
+
+    if(card._titleEl){
+      card._titleEl.textContent=title;
+    }
+
+    if(card._metaEl){
+      card._metaEl.textContent=expression||'';
+    }
+
+    var containerNode=card.querySelector('.pretty-dump-table-container');
+    if(!containerNode){
+      containerNode=document.createElement('div');
+      containerNode.className='pretty-dump-table-container';
+      card.appendChild(containerNode);
+    }
+    containerNode.innerHTML='';
+
+    var table=document.createElement('table');
+    table.className='pretty-dump-table';
+
+    var thead=document.createElement('thead');
+    var headerRow=document.createElement('tr');
+    for(var colIndex=0;colIndex<dataset.columns.length;colIndex+=1){
+      var th=document.createElement('th');
+      th.textContent=dataset.columns[colIndex];
+      headerRow.appendChild(th);
+    }
+    thead.appendChild(headerRow);
+
+    var tbody=document.createElement('tbody');
+    for(var rowIndex=0;rowIndex<dataset.rows.length;rowIndex+=1){
+      var tr=document.createElement('tr');
+      var rowValues=dataset.rows[rowIndex];
+      for(var cellIndex=0;cellIndex<rowValues.length;cellIndex+=1){
+        var td=document.createElement('td');
+        td.textContent=rowValues[cellIndex];
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    containerNode.appendChild(table);
+
+    panel.appendChild(card);
+    requestAnimationFrame(function(){
+      card.scrollIntoView({behavior:'smooth',block:'nearest'});
+    });
+  }
+
+  function ensureTablePanel(dump){
+    if(dump._tablePanel && dump._tablePanel.parentNode){
+      return dump._tablePanel;
+    }
+
+    var panel=document.createElement('div');
+    panel.className='pretty-dump-table-panel';
+    var currentTheme=dump.getAttribute('data-theme');
+    var preference=dump.getAttribute('data-theme-preference');
+    if(currentTheme){
+      panel.setAttribute('data-theme',currentTheme);
+    } else if(preference){
+      panel.setAttribute('data-theme',preference);
+    }
+    dump.appendChild(panel);
+    dump._tablePanel=panel;
+    ensureThemeObserver(dump);
+    return panel;
+  }
+
+  function ensureThemeObserver(dump){
+    if(dump._themeObserver){return;}
+    var observer=new MutationObserver(function(mutations){
+      mutations.forEach(function(mutation){
+        if(mutation.type==='attributes' && mutation.attributeName==='data-theme' && dump._tablePanel){
+          var theme=dump.getAttribute('data-theme');
+          if(theme){
+            dump._tablePanel.setAttribute('data-theme',theme);
+          } else {
+            dump._tablePanel.removeAttribute('data-theme');
+          }
+        }
+      });
+    });
+    observer.observe(dump,{attributes:true,attributeFilter:['data-theme']});
+    dump._themeObserver=observer;
+  }
+
+  var rootThemeObserver=new MutationObserver(function(){
+    var theme=document.documentElement.getAttribute('data-theme');
+    if(!theme){return;}
+    dumps.forEach(function(dump){
+      var preference=dump.getAttribute('data-theme-preference')||'auto';
+      if(preference!=='auto'){return;}
+      dump.setAttribute('data-theme',theme);
+      if(dump._tablePanel){
+        dump._tablePanel.setAttribute('data-theme',theme);
+      }
+    });
+  });
+
+  rootThemeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+  function buildTabularDataset(raw){
+    var parsed;
+    try{
+      parsed=JSON.parse(raw);
+    }catch(error){
+      return null;
+    }
+
+    var rows=normaliseRows(parsed);
+    if(!rows||!rows.length){
+      return null;
+    }
+
+    var columnOrder=[];
+    var columnSet={};
+    var normalisedRows=[];
+
+    for(var i=0;i<rows.length;i+=1){
+      var record=normaliseRow(rows[i]);
+      if(!record){
+        return null;
+      }
+      normalisedRows.push(record);
+
+      for(var key in record){
+        if(Object.prototype.hasOwnProperty.call(record,key) && !columnSet[key]){
+          columnSet[key]=true;
+          columnOrder.push(key);
+        }
+      }
+    }
+
+    if(!columnOrder.length){
+      return null;
+    }
+
+    var tableRows=[];
+    for(var r=0;r<normalisedRows.length;r+=1){
+      var recordRow=normalisedRows[r];
+      var rowValues=[];
+      for(var c=0;c<columnOrder.length;c+=1){
+        var column=columnOrder[c];
+        rowValues.push(formatCellValue(recordRow[column]));
+      }
+      tableRows.push(rowValues);
+    }
+
+    return {columns:columnOrder,rows:tableRows};
+  }
+
+  function normaliseRows(value){
+    if(Array.isArray(value)){
+      return value;
+    }
+
+    if(value && typeof value==='object'){
+      if(Array.isArray(value.__items__)){
+        return value.__items__;
+      }
+
+      var result=[];
+      for(var key in value){
+        if(!Object.prototype.hasOwnProperty.call(value,key)){
+          continue;
+        }
+        if(typeof key==='string' && key.indexOf('__')===0){
+          continue;
+        }
+        result.push(value[key]);
+      }
+      return result;
+    }
+
+    return null;
+  }
+
+  function normaliseRow(row){
+    var workingRow=row;
+
+    if(workingRow && typeof workingRow==='object' && !Array.isArray(workingRow) && Array.isArray(workingRow.__items__)){
+      workingRow=workingRow.__items__;
+    }
+
+    var record={};
+
+    if(Array.isArray(workingRow)){
+      for(var index=0;index<workingRow.length;index+=1){
+        record[String(index)]=workingRow[index];
+      }
+    } else if(workingRow && typeof workingRow==='object'){
+      if(workingRow.properties && typeof workingRow.properties==='object' && !Array.isArray(workingRow.properties)){
+        for(var key in workingRow.properties){
+          if(!Object.prototype.hasOwnProperty.call(workingRow.properties,key)){
+            continue;
+          }
+          if(key.indexOf('__')===0){
+            continue;
+          }
+          record[key]=workingRow.properties[key];
+        }
+      }
+
+      for(var ownKey in workingRow){
+        if(!Object.prototype.hasOwnProperty.call(workingRow,ownKey)){
+          continue;
+        }
+        if(ownKey==='properties'||ownKey.indexOf('__')===0){
+          continue;
+        }
+        record[ownKey]=workingRow[ownKey];
+      }
+    } else {
+      return null;
+    }
+
+    return Object.keys(record).length?record:null;
+  }
+
+  function formatCellValue(value){
+    if(typeof value==='undefined'){
+      return '';
+    }
+    if(value===null){
+      return 'null';
+    }
+    if(typeof value==='boolean'){
+      return value?'true':'false';
+    }
+    if(typeof value==='object'){
+      try{
+        return JSON.stringify(value);
+      }catch(error){
+        return Object.prototype.toString.call(value);
+      }
+    }
+    return String(value);
+  }
+
+  function performSearch(root,scopeNode,term){
+    root.querySelectorAll('[data-node-type].search-result-target').forEach(function(el){
+      el.classList.remove('search-result-target');
+    });
+    root.querySelectorAll('[data-node-type].search-result-context').forEach(function(el){
+      el.classList.remove('search-result-context');
+    });
+
+    if(typeof term!=='string'){
+      return;
+    }
+
+    var trimmed=term.trim();
+    if(trimmed===''){
+      return;
+    }
+
+    var search=trimmed.toLowerCase();
+    var candidates=[scopeNode].concat(Array.from(scopeNode.querySelectorAll('[data-node-type]')));
+    var firstHit=null;
+
+    candidates.forEach(function(candidate){
+      var label=candidate.querySelector('.node-summary-label')||candidate.querySelector('.node-label');
+      var labelText=label&&label.textContent?label.textContent.toLowerCase():'';
+      var expression=(candidate.getAttribute('data-expression')||'').toLowerCase();
+      var json=(candidate.getAttribute('data-json')||'').toLowerCase();
+
+      if(labelText===''&&expression===''&&json===''){
+        return;
+      }
+
+      var labelMatch=labelText.includes(search);
+      var expressionMatch=expression.includes(search);
+      var jsonMatch=json.includes(search);
+      var isBranch=candidate.matches('details[data-node-type], [data-node-type].node-branch');
+      var isDirectMatch=labelMatch||expressionMatch||(jsonMatch&&!isBranch);
+
+      if(!isDirectMatch&&!jsonMatch){
+        return;
+      }
+
+      if(candidate.tagName==='DETAILS'){
+        candidate.open=true;
+      }
+
+      if(isDirectMatch){
+        candidate.classList.add('search-result-target');
+      } else {
+        candidate.classList.add('search-result-context');
+      }
+
+      var parent=candidate.parentElement;
+      while(parent){
+        if(parent.tagName==='DETAILS'){
+          parent.open=true;
+        }
+        if(parent instanceof HTMLElement && parent.hasAttribute('data-node-type') && !parent.classList.contains('search-result-target')){
+          parent.classList.add('search-result-context');
+        }
+        parent=parent.parentElement;
+      }
+
+      if(isDirectMatch&&!firstHit){
+        firstHit=candidate;
+      }
+    });
+
+    if(firstHit){
+      firstHit.scrollIntoView({behavior:'smooth',block:'center'});
+      showToast('Search results highlighted');
+    } else {
+      showToast('No matches found for "'+trimmed+'"','error');
+    }
+  }
+
+  function copyNodeJson(node){
+    var raw=node.getAttribute('data-json');
+    if(!raw){
+      showToast('This value cannot be copied as JSON.','error');
+      return;
+    }
+
+    var payload=raw;
+    try{
+      var parsed=JSON.parse(raw);
+      payload=JSON.stringify(parsed,null,2);
+    }catch(error){/* ignore */}
+
+    if(navigator.clipboard && typeof navigator.clipboard.writeText==='function'){
+      navigator.clipboard.writeText(payload)
+        .then(function(){showToast('Copied JSON to clipboard.','success');})
+        .catch(function(){fallbackCopy(payload);});
+      return;
+    }
+
+    fallbackCopy(payload);
+  }
+
+  function fallbackCopy(text){
+    var textarea=document.createElement('textarea');
+    textarea.value=text;
+    textarea.setAttribute('readonly','');
+    textarea.style.position='absolute';
+    textarea.style.left='-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    var copied=false;
+    try{
+      copied=document.execCommand('copy');
+    }catch(error){
+      copied=false;
+    }
+    document.body.removeChild(textarea);
+    if(copied){
+      showToast('Copied JSON to clipboard.','success');
+    } else {
+      showToast('Unable to copy value.','error');
+    }
+  }
+})();</script>
+SCRIPT;
+    }
+}

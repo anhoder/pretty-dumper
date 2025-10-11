@@ -1,0 +1,79 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use PrettyDumper\Formatter\DumpRenderRequest;
+use PrettyDumper\Formatter\FormatterConfiguration;
+use PrettyDumper\Formatter\PrettyFormatter;
+use PrettyDumper\Renderer\CliRenderer;
+
+const EXIT_SUCCESS = 0;
+const EXIT_PARSE_ERROR = 2;
+const EXIT_RUNTIME_ERROR = 3;
+
+$options = getopt('', ['format:', 'depth:', 'theme:', 'no-color', 'help']);
+
+if (isset($options['help'])) {
+    fwrite(STDOUT, "Usage: pretty-dump [options] <expression>\n");
+    exit(EXIT_SUCCESS);
+}
+
+$args = array_values(array_diff($argv, array_filter($argv, static fn ($arg) => str_starts_with($arg, '--'))));
+
+if (count($args) < 2) {
+    fwrite(STDERR, "ERROR: Missing expression to dump.\n");
+    exit(EXIT_PARSE_ERROR);
+}
+
+$expression = $args[count($args) - 1];
+
+try {
+    $payload = eval('return ' . $expression . ';');
+} catch (ParseError $error) {
+    fwrite(STDERR, 'ERROR: Unable to parse expression: ' . $error->getMessage() . "\n");
+    exit(EXIT_PARSE_ERROR);
+} catch (Throwable $error) {
+    fwrite(STDERR, 'ERROR: Exception thrown while evaluating expression: ' . $error->getMessage() . "\n");
+    exit(EXIT_RUNTIME_ERROR);
+}
+
+$configOverrides = [];
+
+if (isset($options['depth'])) {
+    $configOverrides['maxDepth'] = (int) $options['depth'];
+}
+
+if (isset($options['theme'])) {
+    $configOverrides['theme'] = $options['theme'];
+}
+
+if (($options['format'] ?? 'text') === 'json') {
+    $configOverrides['autoDetectJson'] = true;
+}
+
+$configuration = new FormatterConfiguration($configOverrides);
+$formatter = PrettyFormatter::forChannel('cli', $configuration);
+$renderer = new CliRenderer($formatter);
+
+$requestOptions = [];
+if (isset($options['no-color'])) {
+    $requestOptions['color'] = false;
+}
+
+if (isset($options['theme'])) {
+    $requestOptions['theme'] = $options['theme'];
+}
+
+$request = new DumpRenderRequest($payload, 'cli', $requestOptions);
+
+try {
+    $output = $renderer->render($request, ['color' => !isset($options['no-color'])]);
+    fwrite(STDOUT, $output . "\n");
+    exit(EXIT_SUCCESS);
+} catch (Throwable $error) {
+    fwrite(STDERR, 'ERROR: Failed to render dump: ' . $error->getMessage() . "\n");
+    exit(EXIT_RUNTIME_ERROR);
+}
