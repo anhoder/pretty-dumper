@@ -1,6 +1,7 @@
 /vendor/
 composer.phar
 composer.lock
+.vim-arsync
 
 # IDE 配置文件
 .vscode/

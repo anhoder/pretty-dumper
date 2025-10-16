@@ -1,6 +1,7 @@
 {
   "name": "anhoder/pretty-dumper",
   "description": "PHP debugging output dumper tools for CLI and web",
+  "version": "1.0.0-dev",
   "type": "library",
   "require": {
     "php": "^8.0"

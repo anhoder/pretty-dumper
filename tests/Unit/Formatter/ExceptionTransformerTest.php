@@ -46,7 +46,7 @@ it('renders chained exceptions with caused-by sections', function (): void {
         ->toContain('RuntimeException');
 });
 
-it('truncates verbose exception messages and exposes continue marker', function (): void {
+it('renders verbose exception messages in full', function (): void {
     $longMessage = str_repeat('Stack overflow detected. ', 20);
     $exception = new OverflowException($longMessage);
 
@@ -61,6 +61,6 @@ it('truncates verbose exception messages and exposes continue marker', function 
         ->not->toBeNull();
 
     expect($payloadSegment->content())
-        ->toContain('… truncated')
-        ->toContain('show more');
+        ->not->toContain('… truncated')
+        ->toContain($longMessage);
 });

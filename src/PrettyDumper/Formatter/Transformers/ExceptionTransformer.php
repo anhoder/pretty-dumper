@@ -61,13 +61,16 @@ final class ExceptionTransformer
         $lines[] = sprintf('%s: %s (code: %d)', $header, $exception::class, $exception->getCode());
 
         $message = $this->maskSensitiveFragments($exception->getMessage(), $rules);
-        $message = $this->truncateMessage($message, $configuration->messageLimit());
-        $lines[] = sprintf('Message : %s', $message);
+        // $message = $this->truncateMessage($message, $configuration->messageLimit());
+        $lines[] = sprintf('Message: %s', $message);
 
         $file = $this->normalizePath($exception->getFile());
         $lines[] = sprintf('Location: %s:%d', $file, $exception->getLine());
-        $lines[] = 'Trace   :';
-        $lines = array_merge($lines, $this->formatTrace($exception));
+        $lines[] = 'Trace:';
+        $traceLines = $this->formatTrace($exception);
+        foreach ($traceLines as $traceLine) {
+            $lines[] = '  ' . $traceLine;
+        }
 
         if ($isPrimary && $configuration->option('includeVariableSnapshots', false) && $variables !== []) {
             $lines[] = 'Variables:';
@@ -82,15 +85,17 @@ final class ExceptionTransformer
     private function normalizePath(string $path): string
     {
         $normalized = str_replace('\\', '/', $path);
-        $parts = explode('/', $normalized);
+        // $parts = explode('/', $normalized);
 
-        if (count($parts) <= 4) {
-            return $normalized;
-        }
+        // if (count($parts) <= 4) {
+        //     return $normalized;
+        // }
 
-        $tail = array_slice($parts, -3);
+        // $tail = array_slice($parts, -3);
 
-        return '…/' . implode('/', $tail);
+        // return '…/' . implode('/', $tail);
+
+        return $normalized;
     }
 
     /**
@@ -132,10 +137,6 @@ final class ExceptionTransformer
         $summary = [];
         foreach ($args as $value) {
             $summary[] = $this->stringify($value);
-            if (count($summary) >= 3) {
-                $summary[] = '…';
-                break;
-            }
         }
 
         return implode(', ', $summary);
@@ -143,11 +144,13 @@ final class ExceptionTransformer
 
     private function truncateMessage(string $message, int $limit): string
     {
-        if (mb_strlen($message) <= $limit) {
-            return $message;
-        }
+        // if (mb_strlen($message) <= $limit) {
+        //     return $message;
+        // }
 
-        return mb_substr($message, 0, $limit) . '… truncated (show more)';
+        // return mb_substr($message, 0, $limit) . '… truncated (show more)';
+
+        return $message;
     }
 
     /**
@@ -196,17 +199,8 @@ final class ExceptionTransformer
             }
 
             $parts = [];
-            $count = 0;
             foreach ($value as $key => $inner) {
                 $parts[] = sprintf('%s: %s', (string) $key, $this->stringify($inner));
-                $count++;
-
-                if ($count >= 3) {
-                    if (count($value) > $count) {
-                        $parts[] = '…';
-                    }
-                    break;
-                }
             }
 
             return '[' . implode(', ', $parts) . ']';

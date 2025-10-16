@@ -22,8 +22,7 @@ it('renders exception traces with caused by sections', function (): void {
     expect($output)
         ->toContain('Exception: RuntimeException')
         ->toContain('Caused by: InvalidArgumentException')
-        ->toContain('Trace   :')
-        ->toContain('#0');
+        ->toMatch('/Trace:\\n\s+#0/');
 });
 
 it('includes variable snapshot summaries in the trace output', function (): void {

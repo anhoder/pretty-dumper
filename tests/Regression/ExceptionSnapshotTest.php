@@ -23,6 +23,6 @@ it('matches the expected snapshot for nested exceptions', function (): void {
     expect($output)
         ->toContain('Exception: RuntimeException')
         ->toContain('Caused by: InvalidArgumentException')
-        ->toContain('Trace   :')
+        ->toMatch('/Trace:\\n\s+#0/')
         ->toContain('Rendered in');
 });

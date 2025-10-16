@@ -185,9 +185,33 @@ final class CliRenderer
         $continuation = $this->colorize($isLast ? '    ' : '│   ', self::COLOR_KEY, $useColor);
 
         if ($value->children() === []) {
+            $requiresMultilineAlignment = $value->type() === 'exception'
+                || str_contains($value->content(), "\n");
+
+            if ($requiresMultilineAlignment) {
+                $valueOutput = $this->renderValueSegment($value, $depth + 1, $useColor);
+
+                if (str_contains($valueOutput, "\n")) {
+                    $valueLines = explode("\n", $valueOutput);
+                    $firstLine = (string) array_shift($valueLines);
+
+                    $line = $indent . $connector . $key . ' => ' . $this->stripIndent($firstLine, $depth + 1);
+                    $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
+
+                    $keyWidth = $this->stringDisplayWidth($rawKey) + 4;
+                    $continuationPadding = $keyWidth > 0 ? str_repeat(' ', $keyWidth) : '';
+
+                    foreach ($valueLines as $childLine) {
+                        $line .= "\n" . $indent . $continuation . $continuationPadding . $this->stripIndent($childLine, $depth + 1);
+                    }
+
+                    return $line;
+                }
+            }
+
             $valueContent = $this->renderLeafValueContent($value, $useColor);
             $line = $indent . $connector . $key . ' => ' . $valueContent;
-            $line .= $this->renderExpressionSuffix($this->expressionMeta($value), $useColor);
+            $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
 
             return $line;
         }
@@ -196,14 +220,40 @@ final class CliRenderer
         $valueLines = explode("\n", $valueOutput);
         $firstLine = (string) array_shift($valueLines);
 
-        $line = $indent . $connector . $key . ' => ' . ltrim($firstLine);
+        $lines = [];
+        $primaryLine = $indent . $connector . $key . ' => ' . $this->stripIndent($firstLine, $depth + 1);
+        $primaryLine .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
+        $lines[] = $primaryLine;
+
         foreach ($valueLines as $childLine) {
-            $line .= "\n" . $indent . $continuation . ltrim($childLine);
+            $lines[] = $indent . $continuation . $this->stripIndent($childLine, $depth + 1);
         }
 
-        $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
+        return implode("\n", $lines);
+    }
 
-        return $line;
+    private function stripIndent(string $line, int $depth): string
+    {
+        $indent = $this->indent($depth);
+
+        if ($indent !== '' && str_starts_with($line, $indent)) {
+            return (string) substr($line, strlen($indent));
+        }
+
+        return ltrim($line);
+    }
+
+    private function stringDisplayWidth(string $text): int
+    {
+        if (function_exists('mb_strwidth')) {
+            return mb_strwidth($text, 'UTF-8');
+        }
+
+        if (function_exists('mb_strlen')) {
+            return mb_strlen($text, 'UTF-8');
+        }
+
+        return strlen($text);
     }
 
     private function renderStringSegment(RenderedSegment $segment, int $depth, bool $useColor): string
@@ -273,12 +323,16 @@ final class CliRenderer
 
         foreach ($contentLines as $line) {
             if (str_starts_with($line, '    ')) {
-                $stackLines[] = trim($line);
+                $stackLines[] = $line;
                 continue;
             }
 
             if ($stackHeader !== null) {
-                $lines[] = $muted($this->formatStackSummary($stackHeader, $stackLines));
+                // $lines[] = $muted($this->formatStackSummary($stackHeader, $stackLines));
+                $lines[] = $muted($stackHeader);
+                foreach ($stackLines as $stackLine) {
+                    $lines[] = $muted($stackLine);
+                }
                 $stackHeader = null;
                 $stackLines = [];
             }
@@ -292,7 +346,11 @@ final class CliRenderer
         }
 
         if ($stackHeader !== null) {
-            $lines[] = $muted($this->formatStackSummary($stackHeader, $stackLines));
+            // $lines[] = $muted($this->formatStackSummary($stackHeader, $stackLines));
+            $lines[] = $muted($stackHeader);
+            foreach ($stackLines as $stackLine) {
+                $lines[] = $muted($stackLine);
+            }
         }
 
         if ($this->evaluateBool($segment->metadata()['truncatedStack'] ?? false, false)) {

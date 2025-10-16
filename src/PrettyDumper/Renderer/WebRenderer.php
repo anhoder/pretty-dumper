@@ -171,9 +171,9 @@ final class WebRenderer
             .pretty-dump .node-label {
                 /* flex: 1; */
                 min-width: 0;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                /* white-space: nowrap; */
+                /* overflow: hidden; */
+                /* text-overflow: ellipsis; */
             }
 
             .pretty-dump [data-node-type="array"] > summary .node-summary-label,
@@ -226,6 +226,7 @@ final class WebRenderer
             }
 
             .pretty-dump .node-inline {
+                position: relative;
                 display: flex;
                 align-items: center;
                 gap: 0.4rem;
@@ -295,15 +296,23 @@ final class WebRenderer
             .pretty-dump .node-value-unknown { color: __UNKNOWN__; }
 
             .pretty-dump .node-actions {
-                display: none;
+                display: flex;
                 gap: 0.25rem;
+                align-items: center;
+                margin-left: 0.4rem;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: opacity 0.15s ease-in-out;
             }
 
             .pretty-dump summary:hover .node-actions,
             .pretty-dump summary:focus-within .node-actions,
             .pretty-dump .node-inline:hover .node-actions,
             .pretty-dump .node-inline:focus-within .node-actions {
-                display: flex;
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
             }
 
             .pretty-dump .node-action {
@@ -382,18 +391,18 @@ final class WebRenderer
             .pretty-dump .pretty-dump-table-title {
                 font-weight: 600;
                 font-size: 0.9rem;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                /* white-space: nowrap; */
+                /* overflow: hidden; */
+                /* text-overflow: ellipsis; */
             }
 
             .pretty-dump .pretty-dump-table-meta {
                 font-size: 0.75rem;
                 color: __STACK_INDEX__;
                 opacity: 0.9;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                /* white-space: nowrap; */
+                /* overflow: hidden; */
+                /* text-overflow: ellipsis; */
             }
 
             .pretty-dump .pretty-dump-table-close {
@@ -436,9 +445,9 @@ final class WebRenderer
                 text-align: left;
                 vertical-align: top;
                 max-width: 320px;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+                /* white-space: nowrap; */
+                /* overflow: hidden; */
+                /* text-overflow: ellipsis; */
             }
 
             .pretty-dump .pretty-dump-table thead th {
@@ -490,9 +499,62 @@ final class WebRenderer
                 font-size: 0.78rem;
             }
 
-            .pretty-dump .exception-header {
+            .pretty-dump .exception-details {
                 padding: 0.6rem 0.75rem;
                 border-bottom: 1px solid __BORDER__;
+                display: grid;
+                gap: 0.75rem;
+            }
+
+            .pretty-dump .exception-info {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.72rem;
+            }
+
+            .pretty-dump .exception-info th,
+            .pretty-dump .exception-info td {
+                padding: 0.2rem 0.3rem;
+                text-align: left;
+                vertical-align: top;
+                border-bottom: 1px solid __BORDER__;
+            }
+
+            .pretty-dump .exception-info th {
+                font-weight: 600;
+                color: __STACK_FUNCTION__;
+                width: 120px;
+            }
+
+            .pretty-dump .exception-info td {
+                color: __STACK_FUNCTION__;
+                word-break: break-word;
+            }
+
+            .pretty-dump .exception-summary {
+                gap: 0.25rem;
+                flex-wrap: wrap;
+                align-items: baseline;
+            }
+
+            .pretty-dump .exception-summary-item {
+                display: inline-flex;
+                gap: 0.25rem;
+                align-items: baseline;
+                font-size: 0.72rem;
+                background: rgba(37, 99, 235, 0.08);
+                background: color-mix(in srgb, __ACCENT__ 8%, transparent 92%);
+                color: __ACCENT__;
+                border-radius: 4px;
+                padding: 0.1rem 0.35rem;
+            }
+
+            .pretty-dump .exception-summary-label {
+                font-weight: 600;
+            }
+
+            .pretty-dump .exception-summary-value {
+                color: __STACK_FUNCTION__;
             }
 
             .pretty-dump .stack-frames {
@@ -811,6 +873,21 @@ final class WebRenderer
         if ($segment->type() === 'array-item') {
             $valueSegment = $children[0];
 
+            if ($valueSegment->type() === 'exception') {
+                $attributes['class'] .= ' node-branch';
+                $attrString = $this->attributesToString($attributes);
+                $summaryHtml = $this->renderArrayItemInlineContent($segment, $valueSegment, $depth);
+                $childMarkup = $this->renderNode($valueSegment, $depth + 1, $preferJavascript);
+
+                return sprintf(
+                    '<details %s><summary class="node-summary">%s%s</summary><div class="node-children">%s</div></details>',
+                    $attrString,
+                    $summaryHtml,
+                    $this->renderNodeActions($segment, $depth),
+                    $childMarkup,
+                );
+            }
+
             if ($valueSegment->children() === []) {
                 $attributes['class'] .= ' node-inline';
                 $attrString = $this->attributesToString($attributes);
@@ -902,6 +979,7 @@ final class WebRenderer
         return $this->renderValueSpan($segment);
     }
 
+    /*
     private function truncateLabel(string $label, int $limit = 96): string
     {
         if (mb_strlen($label) <= $limit) {
@@ -910,6 +988,7 @@ final class WebRenderer
 
         return rtrim(mb_strimwidth($label, 0, $limit, '…', 'UTF-8'));
     }
+    */
 
     private function renderNodeActions(RenderedSegment $segment, int $depth): string
     {
@@ -919,8 +998,10 @@ final class WebRenderer
         }
 
         $expressionValue = $this->expressionMeta($segment) ?? $segment->content();
-        $searchLabel = $this->escapeAttr(sprintf('Search within %s', $this->truncateLabel($expressionValue, 40)));
-        $copyLabel = $this->escapeAttr(sprintf('Copy %s as JSON', $this->truncateLabel($expressionValue, 40)));
+        // $searchLabel = $this->escapeAttr(sprintf('Search within %s', $this->truncateLabel($expressionValue, 40)));
+        // $copyLabel = $this->escapeAttr(sprintf('Copy %s as JSON', $this->truncateLabel($expressionValue, 40)));
+        $searchLabel = $this->escapeAttr(sprintf('Search within %s', $expressionValue));
+        $copyLabel = $this->escapeAttr(sprintf('Copy %s as JSON', $expressionValue));
 
         $buttons = [
             sprintf('<button type="button" class="node-action" data-action="search" aria-label="%s" title="Search">🔍</button>', $searchLabel),
@@ -928,7 +1009,8 @@ final class WebRenderer
         ];
 
         if ($this->isTabularJsonStructure($metadata['jsonValue'])) {
-            $tableLabel = $this->escapeAttr(sprintf('Render %s as table', $this->truncateLabel($expressionValue, 40)));
+            // $tableLabel = $this->escapeAttr(sprintf('Render %s as table', $this->truncateLabel($expressionValue, 40)));
+            $tableLabel = $this->escapeAttr(sprintf('Render %s as table', $expressionValue));
             $buttons[] = sprintf('<button type="button" class="node-action" data-action="table" aria-label="%s" title="Render as table">📊</button>', $tableLabel);
         }
 
@@ -1074,6 +1156,17 @@ final class WebRenderer
     {
         $key = sprintf('<span class="node-key">%s</span>', $this->escape($segment->content()));
         $separator = '<span class="node-separator">⇒</span>';
+
+        if ($valueSegment->type() === 'exception') {
+            $firstLine = explode("\n", $valueSegment->content())[0] ?? '';
+            $classes = ['node-value', 'node-value-exception'];
+            $valueHtml = sprintf('<span class="%s">%s</span>', implode(' ', $classes), $this->escape($firstLine));
+            $expression = $this->expressionMeta($valueSegment);
+            $expressionHtml = $this->renderExpressionHtml($expression);
+
+            return $key . ' ' . $separator . ' ' . $valueHtml . $expressionHtml;
+        }
+
         $value = $this->renderValueSpan($valueSegment);
 
         return $key . ' ' . $separator . ' ' . $value;
@@ -1235,17 +1328,91 @@ final class WebRenderer
             $framesMarkup .= '</div>';
         }
 
-        // 保留原始的异常信息文本作为头部
+        $headerLines = explode("\n", $content);
+        $filteredLines = [];
+        $skippingTrace = false;
+
+        foreach ($headerLines as $line) {
+            if (str_starts_with($line, 'Trace')) {
+                $skippingTrace = true;
+                continue;
+            }
+
+            if ($skippingTrace) {
+                $trimmed = ltrim($line);
+                if ($trimmed === '' || str_starts_with($trimmed, '#')) {
+                    continue;
+                }
+
+                $skippingTrace = false;
+            }
+
+            $trimmedLine = trim($line);
+            if ($trimmedLine === '') {
+                continue;
+            }
+
+            $filteredLines[] = $trimmedLine;
+        }
+
+        $infoItems = [];
+        foreach ($filteredLines as $line) {
+            if (preg_match('/^([^:]+):\s*(.*)$/', $line, $matches) === 1) {
+                $label = trim($matches[1]);
+                $value = trim($matches[2]);
+            } else {
+                $label = 'Info';
+                $value = $line;
+            }
+
+            $infoItems[] = [
+                'label' => $label,
+                'value' => $value,
+            ];
+        }
+
+        $summaryItems = array_slice($infoItems, 0, 3);
+        $summaryParts = [];
+        foreach ($summaryItems as $item) {
+            $summaryParts[] = sprintf(
+                '<span class="exception-summary-item"><span class="exception-summary-label">%s</span><span class="exception-summary-value">%s</span></span>',
+                $this->escape($item['label']),
+                $this->escape($item['value'])
+            );
+        }
+
+        if ($summaryParts === []) {
+            $summaryHtml = sprintf(
+                '<span class="exception-summary-item"><span class="exception-summary-label">%s</span><span class="exception-summary-value">%s</span></span>',
+                $this->escape('Exception'),
+                $this->escape('Details')
+            );
+        } else {
+            $summaryHtml = implode('', $summaryParts);
+        }
+
+        $infoRows = '';
+        foreach ($infoItems as $item) {
+            $infoRows .= sprintf(
+                '<tr><th>%s</th><td>%s</td></tr>',
+                $this->escape($item['label']),
+                $this->escape($item['value'])
+            );
+        }
+
+        $infoSection = $infoRows === ''
+            ? ''
+            : sprintf('<div class="exception-details"><table class="exception-info">%s</table></div>', $infoRows);
+
         return sprintf(
-            '<details %s open>' .
-            '<summary class="node-summary">Exception Details</summary>' .
-            '<div class="exception-header">' .
-            '<pre>%s</pre>' .
-            '</div>' .
+            '<details %s>' .
+            '<summary class="node-summary exception-summary">%s</summary>' .
+            '%s' .
             '%s' .
             '</details>',
             $attrString,
-            $content,
+            $summaryHtml,
+            $infoSection,
             $framesMarkup
         );
     }
