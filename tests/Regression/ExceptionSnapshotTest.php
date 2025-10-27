@@ -14,6 +14,7 @@ it('matches the expected snapshot for nested exceptions', function (): void {
     $formatter = PrettyFormatter::forChannel('cli', new FormatterConfiguration([
         'expandExceptions' => true,
         'showContext' => true,
+        'showPerformanceMetrics' => true,
     ]));
     $renderer = new CliRenderer($formatter);
 

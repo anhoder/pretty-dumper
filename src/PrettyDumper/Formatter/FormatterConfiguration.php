@@ -20,6 +20,8 @@ final class FormatterConfiguration
 
     private bool $showContext;
 
+    private bool $showPerformanceMetrics;
+
     private string $theme;
 
     /**
@@ -52,7 +54,9 @@ final class FormatterConfiguration
         $this->maxItemsHardLimit = self::readPositiveInt($overrides, 'maxItemsHardLimit', 5000);
         $this->stringLengthLimit = self::readPositiveInt($overrides, 'stringLengthLimit', 160);
         $this->expandExceptions = self::readBool($overrides, 'expandExceptions', false);
-        $this->showContext = self::readBool($overrides, 'showContext', true);
+        $defaultShowContext = self::defaultShowContext();
+        $this->showContext = self::readBool($overrides, 'showContext', $defaultShowContext);
+        $this->showPerformanceMetrics = self::readBool($overrides, 'showPerformanceMetrics', false);
         $this->theme = self::readString($overrides, 'theme', 'auto');
         $this->stackLimit = self::readPositiveInt($overrides, 'stackLimit', 10);
         $this->messageLimit = self::readPositiveInt($overrides, 'messageLimit', 160);
@@ -70,6 +74,7 @@ final class FormatterConfiguration
 
         $this->extras = $overrides;
         $this->extras['showTableVariableMeta'] = self::readBool($overrides, 'showTableVariableMeta', true);
+        $this->extras['showPerformanceMetrics'] = $this->showPerformanceMetrics;
     }
 
     public function maxDepth(): int
@@ -100,6 +105,11 @@ final class FormatterConfiguration
     public function showContext(): bool
     {
         return $this->showContext;
+    }
+
+    public function showPerformanceMetrics(): bool
+    {
+        return $this->showPerformanceMetrics;
     }
 
     public function theme(): string
@@ -209,6 +219,50 @@ final class FormatterConfiguration
         }
 
         return $default;
+    }
+
+    private static function defaultShowContext(): bool
+    {
+        $env = self::readEnvBool('PRETTY_DUMP_SHOW_CONTEXT');
+
+        if ($env !== null) {
+            return $env;
+        }
+
+        return !\in_array(PHP_SAPI, ['cli', 'phpdbg'], true);
+    }
+
+    private static function readEnvBool(string $key): ?bool
+    {
+        $value = getenv($key);
+
+        if ($value === false) {
+            $value = $_ENV[$key] ?? $_SERVER[$key] ?? null;
+        }
+
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return (bool) $value;
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $normalized = strtolower(trim($value));
+
+        return match ($normalized) {
+            '1', 'true', 'on', 'yes' => true,
+            '0', 'false', 'off', 'no' => false,
+            default => null,
+        };
     }
 
     /**

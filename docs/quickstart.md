@@ -37,6 +37,7 @@ pretty-dump --file=bootstrap/cache/inspect.php --depth=6
 - `--context` / `--context-file` 接受 JSON，上下文会注入 `DumpRenderRequest` 以复现请求、环境或变量快照。
 - `--max-items`、`--string-limit`、`--indent-style` 等高级参数可覆盖 `FormatterConfiguration`，配合 `--show-meta` / `--no-meta`、`--show-context` / `--no-context` 定制输出细节。
 - `--no-color` 或非 TTY 流情况下，渲染器会退化为纯文本输出但保留结构；`--color` 可强制启用 ANSI 颜色。
+- CLI 渠道默认隐藏上下文区块，可通过配置中的 `'showContext' => true` 或设置环境变量 `PRETTY_DUMP_SHOW_CONTEXT=1` 重新启用。
 
 ## Web 嵌入示例
 

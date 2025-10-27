@@ -87,9 +87,23 @@ final class PrettyFormatter
         }
 
         $this->monitor->stop();
-        $root->addChild($this->renderPerformanceSegment());
+
+        if ($this->shouldRenderPerformanceSegment($request)) {
+            $root->addChild($this->renderPerformanceSegment());
+        }
 
         return $root;
+    }
+
+    private function shouldRenderPerformanceSegment(DumpRenderRequest $request): bool
+    {
+        $configured = $this->configuration->showPerformanceMetrics();
+
+        if ($request->hasOption('showPerformanceMetrics')) {
+            return (bool) $request->option('showPerformanceMetrics');
+        }
+
+        return $configured;
     }
 
     /**
@@ -423,7 +437,7 @@ final class PrettyFormatter
             }
         }
 
-        $segment = new RenderedSegment('context', implode("\n", $lines), [
+        $segment = new RenderedSegment('context', implode("\n", $lines) . "\n", [
             'truncatedStack' => $stackTruncated,
         ]);
 

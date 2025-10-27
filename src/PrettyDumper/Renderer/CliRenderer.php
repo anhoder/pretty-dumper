@@ -259,7 +259,7 @@ final class CliRenderer
     private function renderStringSegment(RenderedSegment $segment, int $depth, bool $useColor): string
     {
         $indent = $this->indent($depth);
-        $line = $indent . $this->colorize($segment->content(), self::COLOR_STRING, $useColor);
+        $line = $indent . $this->renderLeafValueContent($segment, $useColor);
         $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
 
         return $line;
@@ -268,7 +268,7 @@ final class CliRenderer
     private function renderNumberSegment(RenderedSegment $segment, int $depth, bool $useColor): string
     {
         $indent = $this->indent($depth);
-        $line = $indent . $this->colorize($segment->content(), self::COLOR_NUMBER, $useColor);
+        $line = $indent . $this->renderLeafValueContent($segment, $useColor);
         $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
 
         return $line;
@@ -277,7 +277,7 @@ final class CliRenderer
     private function renderBoolSegment(RenderedSegment $segment, int $depth, bool $useColor): string
     {
         $indent = $this->indent($depth);
-        $line = $indent . $this->colorize($segment->content(), self::COLOR_BOOL, $useColor);
+        $line = $indent . $this->renderLeafValueContent($segment, $useColor);
         $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
 
         return $line;
@@ -286,7 +286,7 @@ final class CliRenderer
     private function renderNullSegment(RenderedSegment $segment, int $depth, bool $useColor): string
     {
         $indent = $this->indent($depth);
-        $line = $indent . $this->colorize($segment->content(), self::COLOR_NULL, $useColor);
+        $line = $indent . $this->renderLeafValueContent($segment, $useColor);
         $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
 
         return $line;

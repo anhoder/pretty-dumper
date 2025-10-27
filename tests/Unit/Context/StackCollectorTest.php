@@ -54,6 +54,7 @@ class RecordingCollector implements ContextCollector
 it('collects stack frames and applies redaction rules', function (): void {
     $collector = new FakeCollector();
     $configuration = new FormatterConfiguration([
+        'showContext' => true,
         'redactionRules' => [
             RedactionRule::forPattern('/password/i'),
             RedactionRule::forPattern('/api_key/i'),
@@ -98,6 +99,7 @@ it('limits stack depth based on configuration', function (): void {
     };
 
     $configuration = new FormatterConfiguration([
+        'showContext' => true,
         'stackLimit' => 5,
     ]);
 

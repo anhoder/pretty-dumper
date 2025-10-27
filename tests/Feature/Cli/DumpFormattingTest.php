@@ -45,3 +45,34 @@ it('displays truncation notice when limits exceeded', function (): void {
     expect($output)
         ->toContain('… truncated (items: 5, limit: 1)');
 });
+
+it('renders standalone strings with distinct type and value colors', function (): void {
+    $formatter = PrettyFormatter::forChannel('cli', new FormatterConfiguration([
+        'showContext' => false,
+    ]));
+
+    $renderer = new CliRenderer($formatter);
+
+    $value = 'text';
+    $request = new DumpRenderRequest($value, 'cli', ['color' => true]);
+    $output = $renderer->render($request);
+
+    $expected = sprintf("\033[36mstring(%d)\033[0m \033[32m\"%s\"\033[0m", strlen($value), $value);
+    expect($output)->toContain($expected);
+});
+
+it('keeps string coloring consistent inside arrays', function (): void {
+    $formatter = PrettyFormatter::forChannel('cli', new FormatterConfiguration([
+        'showContext' => false,
+    ]));
+
+    $renderer = new CliRenderer($formatter);
+
+    $value = 'text';
+    $payload = ['label' => $value];
+    $request = new DumpRenderRequest($payload, 'cli', ['color' => true]);
+    $output = $renderer->render($request);
+
+    $expected = sprintf("\033[36mstring(%d)\033[0m \033[32m\"%s\"\033[0m", strlen($value), $value);
+    expect($output)->toContain($expected);
+});

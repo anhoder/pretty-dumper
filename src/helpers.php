@@ -138,8 +138,11 @@ if (!function_exists('dump')) {
             $values = [null];
         }
 
-        foreach ($values as $value) {
-            pretty_dump($value);
+        $len = count($values);
+        foreach ($values as $index => $value) {
+            $options = $index === $len - 1 ? [] : ['showContext' => false];
+
+            pretty_dump($value, $options);
         }
     }
 }
@@ -148,7 +151,7 @@ if (!function_exists('dd')) {
     function dd(mixed ...$values): void
     {
         dump(...$values);
-        exit(1);
+        exit(0);
     }
 }
 
@@ -159,7 +162,7 @@ if (!function_exists('pdd')) {
     function pdd(mixed $value, array $options = [], bool $output = true): void
     {
         pd($value, $options, $output);
-        exit(1);
+        exit(0);
     }
 }
 
@@ -174,8 +177,15 @@ if (!function_exists('dumpj')) {
             $values = [null];
         }
 
-        foreach ($values as $value) {
-            pretty_dump(__pretty_dumper_json_stringify($value), ['autoDetectJson' => true]);
+        $len = count($values);
+        foreach ($values as $index => $value) {
+            $options = ['autoDetectJson' => true];
+
+            if ($index !== $len - 1) {
+                $options['showContext'] = false;
+            }
+
+            pretty_dump(__pretty_dumper_json_stringify($value), $options);
         }
     }
 }
@@ -198,7 +208,7 @@ if (!function_exists('ddj')) {
     function ddj(mixed ...$values): void
     {
         dumpj(...$values);
-        exit(1);
+        exit(0);
     }
 }
 
@@ -209,6 +219,6 @@ if (!function_exists('pddj')) {
     function pddj(mixed $value, array $options = [], bool $output = true): void
     {
         pdj($value, $options, $output);
-        exit(1);
+        exit(0);
     }
 }
