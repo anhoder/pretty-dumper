@@ -10,9 +10,44 @@ use Anhoder\PrettyDumper\Renderer\WebRenderer;
 use Anhoder\PrettyDumper\Support\ThemeRegistry;
 
 if (!function_exists('__pretty_dumper_detect_channel')) {
+    /**
+     * Detect whether the current context is CLI or Web.
+     *
+     * This method checks for HTTP-related context rather than relying solely on PHP_SAPI,
+     * which allows it to correctly identify web contexts in Workerman, Swoole, RoadRunner, etc.
+     * where PHP_SAPI is 'cli' but the application is serving HTTP requests.
+     */
     function __pretty_dumper_detect_channel(): string
     {
-        return \in_array(PHP_SAPI, ['cli', 'phpdbg'], true) ? 'cli' : 'web';
+        // Check for HTTP request context indicators
+        // These are present in web environments including Workerman, Swoole, RoadRunner
+
+        // 1. Check for CGI/FPM SAPI (definitely web)
+        if (in_array(PHP_SAPI, ['cgi', 'cgi-fcgi', 'fpm-fcgi'], true)) {
+            return 'web';
+        }
+
+        // 2. Check for HTTP-related superglobals (most reliable for Workerman/Swoole)
+        if (!empty($_SERVER['REQUEST_METHOD']) ||
+            !empty($_SERVER['HTTP_HOST']) ||
+            !empty($_SERVER['REQUEST_URI'])) {
+            return 'web';
+        }
+
+        // 3. Check for output buffering with web-related content
+        if (ob_get_level() > 0) {
+            $content = ob_get_contents();
+            if ($content !== false && (
+                stripos($content, '<html') !== false ||
+                stripos($content, '<!DOCTYPE') !== false ||
+                stripos($content, 'Content-Type: text/html') !== false
+            )) {
+                return 'web';
+            }
+        }
+
+        // 4. Fallback to CLI for true CLI environments
+        return 'cli';
     }
 }
 
@@ -53,7 +88,7 @@ if (!function_exists('pretty_dump')) {
 
         unset($options['channel']);
 
-        $configuration = new FormatterConfiguration($options);
+        $configuration = new FormatterConfiguration($options, $channel);
         $formatter     = PrettyFormatter::forChannel($channel, $configuration);
         $request       = new DumpRenderRequest($value, $channel, $options);
 

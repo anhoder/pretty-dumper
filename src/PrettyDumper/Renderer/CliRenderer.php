@@ -88,6 +88,7 @@ final class CliRenderer
             'bool' => $this->renderBoolSegment($segment, $depth, $useColor),
             'null' => $this->renderNullSegment($segment, $depth, $useColor),
             'unknown' => $this->renderUnknownSegment($segment, $depth, $useColor),
+            'json' => $this->renderJsonSegment($segment, $depth, $useColor),
             'notice', 'circular' => $this->indent($depth) . $this->colorize($segment->content(), self::COLOR_NOTICE, $useColor),
             'exception' => $this->renderExceptionBlock($segment, $depth),
             'performance' => $this->indent($depth) . $this->colorize($segment->content(), self::COLOR_EXPRESSION, $useColor),
@@ -299,6 +300,34 @@ final class CliRenderer
         $line .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
 
         return $line;
+    }
+
+    private function renderJsonSegment(RenderedSegment $segment, int $depth, bool $useColor): string
+    {
+        $lines = [];
+        $indent = $this->indent($depth);
+
+        // Render the header line: "JSON Document"
+        $headerLine = $indent . $this->colorize($segment->content(), self::COLOR_TYPE, $useColor);
+        $headerLine .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
+        $lines[] = $headerLine;
+
+        // Render the JSON body (formatted JSON content)
+        $children = $segment->children();
+        foreach ($children as $child) {
+            if ($child->type() === 'json-body') {
+                $jsonContent = $child->content();
+                if ($jsonContent !== '') {
+                    // Split the formatted JSON into lines and indent each line
+                    $jsonLines = explode("\n", $jsonContent);
+                    foreach ($jsonLines as $jsonLine) {
+                        $lines[] = $indent . '  ' . $this->colorize($jsonLine, self::COLOR_STRING, $useColor);
+                    }
+                }
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     private function renderExceptionBlock(RenderedSegment $segment, int $depth): string

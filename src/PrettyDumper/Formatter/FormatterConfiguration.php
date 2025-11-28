@@ -44,15 +44,18 @@ final class FormatterConfiguration
 
     /**
      * @param array<string, mixed> $overrides
+     * @param string|null $channel The channel (cli or web) for channel-specific defaults
      */
-    public function __construct(array $overrides = [])
+    public function __construct(array $overrides = [], ?string $channel = null)
     {
         $overrides = self::sanitizeOverrides($overrides);
 
-        $this->maxDepth = self::readPositiveInt($overrides, 'maxDepth', 5);
+        // Set maxDepth based on channel: CLI defaults to 3, Web defaults to 5
+        $defaultMaxDepth = self::defaultMaxDepth($channel);
+        $this->maxDepth = self::readPositiveInt($overrides, 'maxDepth', $defaultMaxDepth);
         $this->maxItems = self::readPositiveInt($overrides, 'maxItems', 100);
         $this->maxItemsHardLimit = self::readPositiveInt($overrides, 'maxItemsHardLimit', 5000);
-        $this->stringLengthLimit = self::readPositiveInt($overrides, 'stringLengthLimit', 160);
+        $this->stringLengthLimit = self::readPositiveInt($overrides, 'stringLengthLimit', 500);
         $this->expandExceptions = self::readBool($overrides, 'expandExceptions', false);
         $defaultShowContext = self::defaultShowContext();
         $this->showContext = self::readBool($overrides, 'showContext', $defaultShowContext);
@@ -219,6 +222,30 @@ final class FormatterConfiguration
         }
 
         return $default;
+    }
+
+    private static function defaultMaxDepth(?string $channel): int
+    {
+        // CLI defaults to 3 layers (limited screen space)
+        // Web defaults to 5 layers (expandable UI)
+        if ($channel === 'cli') {
+            return 3;
+        }
+
+        if ($channel === 'web') {
+            return 5;
+        }
+
+        // Fallback: detect context intelligently
+        // Check for web context indicators (works with Workerman, Swoole, RoadRunner, etc.)
+        if (in_array(PHP_SAPI, ['cgi', 'cgi-fcgi', 'fpm-fcgi'], true) ||
+            !empty($_SERVER['REQUEST_METHOD']) ||
+            !empty($_SERVER['HTTP_HOST']) ||
+            !empty($_SERVER['REQUEST_URI'])) {
+            return 5; // web
+        }
+
+        return 3; // cli
     }
 
     private static function defaultShowContext(): bool

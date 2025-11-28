@@ -191,7 +191,7 @@ final class PrettyFormatter
             }
 
             $seen[$objectId] = true;
-            $objectVars = get_object_vars($value);
+            $objectVars = $this->extractObjectProperties($value);
             $segment = $this->renderArray(
                 $objectVars,
                 $depth,
@@ -297,7 +297,12 @@ final class PrettyFormatter
             $jsonKey = is_string($key) ? $key : (string) $key;
             $jsonResult[$jsonKey] = $childJson;
 
-            $child = new RenderedSegment('array-item', sprintf('[%s]', is_int($key) ? $key : var_export($key, true)), [
+            // For object properties, display the sanitized property name with visibility
+            $displayKey = $pathType === 'object' && is_string($key)
+                ? $this->sanitizePropertyName($key)
+                : (is_int($key) ? $key : var_export($key, true));
+
+            $child = new RenderedSegment('array-item', sprintf('[%s]', $displayKey), [
                 'key' => $key,
                 'expression' => $childExpression,
                 'jsonValue' => $childJson,
@@ -550,12 +555,32 @@ final class PrettyFormatter
     private function sanitizePropertyName(string $property): string
     {
         if (str_contains($property, "\0")) {
-            $clean = preg_replace('/^\x00.+\x00/', '', $property);
+            // Check for private property pattern: \0ClassName\0propertyName
+            if (preg_match('/^\x00(.+)\x00(.+)$/', $property, $matches)) {
+                $className = $matches[1];
+                $propertyName = $matches[2];
 
+                // If it's a protected property, the class name is "*"
+                if ($className === '*') {
+                    return $propertyName . ':protected';
+                }
+
+                // Otherwise it's a private property with the declaring class name
+                // Extract just the class name without namespace for brevity
+                $lastBackslash = strrpos($className, '\\');
+                $shortClassName = $lastBackslash !== false
+                    ? substr($className, $lastBackslash + 1)
+                    : $className;
+                return $propertyName . ':private(' . $shortClassName . ')';
+            }
+
+            // Fallback: just remove the null bytes
+            $clean = preg_replace('/^\x00.+\x00/', '', $property);
             return $clean === null || $clean === '' ? 'property' : $clean;
         }
 
-        return $property;
+        // Public property - add explicit marker
+        return $property . ':public';
     }
 
     private function formatStackFrame(ContextFrame $frame, int $index): string
@@ -633,6 +658,58 @@ final class PrettyFormatter
         if (isset($value[self::ARRAY_MARKER])) {
             unset($value[self::ARRAY_MARKER]);
         }
+    }
+
+    /**
+     * Extract all properties from an object using reflection.
+     * This includes private, protected, and public properties.
+     *
+     * @return array<string, mixed>
+     */
+    private function extractObjectProperties(object $object): array
+    {
+        $properties = [];
+        $reflectionClass = new \ReflectionClass($object);
+
+        // Get all declared properties (including inherited ones)
+        foreach ($reflectionClass->getProperties() as $property) {
+            $property->setAccessible(true);
+            $propertyName = $property->getName();
+
+            // Add visibility prefix to the property name
+            if ($property->isPrivate()) {
+                $declaringClass = $property->getDeclaringClass()->getName();
+                $propertyName = "\0{$declaringClass}\0{$propertyName}";
+            } elseif ($property->isProtected()) {
+                $propertyName = "\0*\0{$propertyName}";
+            }
+
+            // Get the property value safely
+            try {
+                if ($property->isInitialized($object)) {
+                    $properties[$propertyName] = $property->getValue($object);
+                } else {
+                    // Uninitialized property (PHP 7.4+ typed properties)
+                    $properties[$propertyName] = '[uninitialized]';
+                }
+            } catch (\Throwable $e) {
+                // If we can't read the property for any reason, mark it as inaccessible
+                $properties[$propertyName] = '[inaccessible]';
+            }
+        }
+
+        // For objects like stdClass that have dynamic properties,
+        // get_object_vars will return them (but not private/protected from other classes)
+        // Merge these with reflection-based properties
+        $dynamicProperties = get_object_vars($object);
+        foreach ($dynamicProperties as $name => $value) {
+            // Only add if not already added via reflection (public properties are accessible)
+            if (!array_key_exists($name, $properties)) {
+                $properties[$name] = $value;
+            }
+        }
+
+        return $properties;
     }
 
     private ThemeRegistry $themes;

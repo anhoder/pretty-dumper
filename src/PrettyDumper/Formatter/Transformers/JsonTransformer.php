@@ -35,7 +35,9 @@ final class JsonTransformer
         ];
 
         $root = new RenderedSegment('json', 'JSON Document', $metadata);
-        $encoded = json_encode($decoded, JSON_PRETTY_PRINT);
+        // Use JSON_UNESCAPED_UNICODE to preserve Chinese and other Unicode characters
+        // Use JSON_UNESCAPED_SLASHES to avoid escaping forward slashes in URLs
+        $encoded = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $root->addChild(RenderedSegment::leaf('json-body', $encoded === false ? '' : $encoded));
 
         return $root;
