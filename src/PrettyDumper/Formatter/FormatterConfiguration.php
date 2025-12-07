@@ -53,16 +53,19 @@ final class FormatterConfiguration
         // Set maxDepth based on channel: CLI defaults to 3, Web defaults to 5
         $defaultMaxDepth = self::defaultMaxDepth($channel);
         $this->maxDepth = self::readPositiveInt($overrides, 'maxDepth', $defaultMaxDepth);
-        $this->maxItems = self::readPositiveInt($overrides, 'maxItems', 100);
-        $this->maxItemsHardLimit = self::readPositiveInt($overrides, 'maxItemsHardLimit', 5000);
-        $this->stringLengthLimit = self::readPositiveInt($overrides, 'stringLengthLimit', 500);
+
+        // Set maxItems based on channel: CLI defaults to 100, Web defaults to 2000
+        $defaultMaxItems = self::defaultMaxItems($channel);
+        $this->maxItems = self::readPositiveInt($overrides, 'maxItems', $defaultMaxItems);
+        $this->maxItemsHardLimit = self::readPositiveInt($overrides, 'maxItemsHardLimit', 10000);
+        $this->stringLengthLimit = self::readPositiveInt($overrides, 'stringLengthLimit', 5000);
         $this->expandExceptions = self::readBool($overrides, 'expandExceptions', false);
         $defaultShowContext = self::defaultShowContext();
         $this->showContext = self::readBool($overrides, 'showContext', $defaultShowContext);
         $this->showPerformanceMetrics = self::readBool($overrides, 'showPerformanceMetrics', false);
         $this->theme = self::readString($overrides, 'theme', 'auto');
-        $this->stackLimit = self::readPositiveInt($overrides, 'stackLimit', 10);
-        $this->messageLimit = self::readPositiveInt($overrides, 'messageLimit', 160);
+        $this->stackLimit = self::readPositiveInt($overrides, 'stackLimit', 50);
+        $this->messageLimit = self::readPositiveInt($overrides, 'messageLimit', 1000);
         $this->indentStyle = self::readString($overrides, 'indentStyle', 'spaces');
         $this->indentSize = self::readPositiveInt($overrides, 'indentSize', 2);
 
@@ -229,11 +232,11 @@ final class FormatterConfiguration
         // CLI defaults to 3 layers (limited screen space)
         // Web defaults to 5 layers (expandable UI)
         if ($channel === 'cli') {
-            return 3;
+            return 6;
         }
 
         if ($channel === 'web') {
-            return 5;
+            return 10;
         }
 
         // Fallback: detect context intelligently
@@ -242,10 +245,34 @@ final class FormatterConfiguration
             !empty($_SERVER['REQUEST_METHOD']) ||
             !empty($_SERVER['HTTP_HOST']) ||
             !empty($_SERVER['REQUEST_URI'])) {
-            return 5; // web
+            return 10; // web
         }
 
-        return 3; // cli
+        return 6; // cli
+    }
+
+    private static function defaultMaxItems(?string $channel): int
+    {
+        // CLI defaults to 500 items (increased for better debugging)
+        // Web defaults to 5000 items (better scrolling and expandable UI)
+        if ($channel === 'cli') {
+            return 500;
+        }
+
+        if ($channel === 'web') {
+            return 5000;
+        }
+
+        // Fallback: detect context intelligently
+        // Check for web context indicators (works with Workerman, Swoole, RoadRunner, etc.)
+        if (in_array(PHP_SAPI, ['cgi', 'cgi-fcgi', 'fpm-fcgi'], true) ||
+            !empty($_SERVER['REQUEST_METHOD']) ||
+            !empty($_SERVER['HTTP_HOST']) ||
+            !empty($_SERVER['REQUEST_URI'])) {
+            return 5000; // web
+        }
+
+        return 500; // cli
     }
 
     private static function defaultShowContext(): bool
