@@ -58,7 +58,7 @@ final class FormatterConfiguration
         $defaultMaxItems = self::defaultMaxItems($channel);
         $this->maxItems = self::readPositiveInt($overrides, 'maxItems', $defaultMaxItems);
         $this->maxItemsHardLimit = self::readPositiveInt($overrides, 'maxItemsHardLimit', 10000);
-        $this->stringLengthLimit = self::readPositiveInt($overrides, 'stringLengthLimit', 5000);
+        $this->stringLengthLimit = self::readPositiveInt($overrides, 'stringLengthLimit', 500000);
         $this->expandExceptions = self::readBool($overrides, 'expandExceptions', false);
         $defaultShowContext = self::defaultShowContext();
         $this->showContext = self::readBool($overrides, 'showContext', $defaultShowContext);
@@ -67,7 +67,8 @@ final class FormatterConfiguration
         $this->stackLimit = self::readPositiveInt($overrides, 'stackLimit', 50);
         $this->messageLimit = self::readPositiveInt($overrides, 'messageLimit', 1000);
         $this->indentStyle = self::readString($overrides, 'indentStyle', 'spaces');
-        $this->indentSize = self::readPositiveInt($overrides, 'indentSize', 2);
+        $defaultIndentSize = self::defaultIndentSize($channel);
+        $this->indentSize = self::readPositiveInt($overrides, 'indentSize', $defaultIndentSize);
 
         $defaultRules = [
             RedactionRule::forPattern('/password/i'),
@@ -79,7 +80,7 @@ final class FormatterConfiguration
         $this->redactionRules = $redactionRules !== [] ? $redactionRules : $defaultRules;
 
         $this->extras = $overrides;
-        $this->extras['showTableVariableMeta'] = self::readBool($overrides, 'showTableVariableMeta', true);
+        $this->extras['showTableVariableMeta'] = self::readBool($overrides, 'showTableVariableMeta', false);
         $this->extras['showPerformanceMetrics'] = $this->showPerformanceMetrics;
     }
 
@@ -284,6 +285,29 @@ final class FormatterConfiguration
         }
 
         return !\in_array(PHP_SAPI, ['cli', 'phpdbg'], true);
+    }
+
+    private static function defaultIndentSize(?string $channel): int
+    {
+        // CLI uses smaller indent (1 space) for compact output
+        // Web uses larger indent (2 spaces) for better readability
+        if ($channel === 'cli') {
+            return 0;
+        }
+
+        if ($channel === 'web') {
+            return 2;
+        }
+
+        // Fallback: detect context
+        if (in_array(PHP_SAPI, ['cgi', 'cgi-fcgi', 'fpm-fcgi'], true) ||
+            !empty($_SERVER['REQUEST_METHOD']) ||
+            !empty($_SERVER['HTTP_HOST']) ||
+            !empty($_SERVER['REQUEST_URI'])) {
+            return 2; // web
+        }
+
+        return 0; // cli
     }
 
     private static function readEnvBool(string $key): ?bool

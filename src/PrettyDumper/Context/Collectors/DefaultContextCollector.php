@@ -14,7 +14,7 @@ final class DefaultContextCollector implements ContextCollector
     public function collect(DumpRenderRequest $request): ContextSnapshot
     {
         /** @var list<array{function: string, line?: int, file?: string, class?: class-string, type?: '->'|'::', args?: list<mixed>, object?: object}> $trace */
-        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 20);
+        $trace = debug_backtrace();
 
         $libraryBase = realpath(dirname(__DIR__, 3)) ?: dirname(__DIR__, 3);
         $ignoredPrefixes = [

@@ -637,6 +637,41 @@ final class WebRenderer
             .pretty-dump .theme-palette-meta {
                 display: none;
             }
+
+            .pretty-dump .json-content {
+                margin: 0.4rem 0 0.4rem 1rem;
+                padding: 0.5rem;
+                background-color: __PANEL_BG__;
+                border-radius: 4px;
+                font-family: inherit;
+                font-size: inherit;
+                line-height: inherit;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .pretty-dump .json-key {
+                color: __UNKNOWN__;
+                font-weight: 600;
+            }
+
+            .pretty-dump .json-string {
+                color: __STRING__;
+            }
+
+            .pretty-dump .json-number {
+                color: __NUMBER__;
+            }
+
+            .pretty-dump .json-bool {
+                color: __BOOL__;
+                font-weight: 600;
+            }
+
+            .pretty-dump .json-null {
+                color: __NULL__;
+                font-style: italic;
+            }
         CSS;
 
         $css = strtr($css, [
@@ -833,6 +868,10 @@ final class WebRenderer
 
         if ($segment->type() === 'exception') {
             return $this->renderExceptionTrace($segment, $attrString, $content);
+        }
+
+        if ($segment->type() === 'json') {
+            return $this->renderJsonNode($segment, $depth, $attrString, $preferJavascript);
         }
 
         $children = $segment->children();
@@ -1415,6 +1454,147 @@ final class WebRenderer
             $infoSection,
             $framesMarkup
         );
+    }
+
+    /**
+     * Render a JSON node with syntax highlighting
+     */
+    private function renderJsonNode(RenderedSegment $segment, int $depth, string $attrString, bool $preferJavascript): string
+    {
+        $summaryClass = $preferJavascript ? 'node-summary' : 'node-summary keyboard-focusable';
+        $headerContent = $this->escape($segment->content());
+
+        $children = $segment->children();
+        $jsonBodyContent = '';
+
+        foreach ($children as $child) {
+            if ($child->type() === 'json-body') {
+                $jsonContent = $child->content();
+                if ($jsonContent !== '') {
+                    $highlightedJson = $this->highlightJsonForWeb($jsonContent);
+                    $jsonBodyContent = sprintf('<pre class="json-content">%s</pre>', $highlightedJson);
+                }
+            }
+        }
+
+        return sprintf(
+            '<details %s><summary class="%s"><span class="node-summary-label">%s</span>%s</summary><div class="node-children">%s</div></details>',
+            $attrString,
+            $summaryClass,
+            $headerContent,
+            $this->renderNodeActions($segment, $depth),
+            $jsonBodyContent
+        );
+    }
+
+    /**
+     * Highlight JSON syntax for HTML output using single-pass scanning
+     */
+    private function highlightJsonForWeb(string $json): string
+    {
+        // Escape HTML first
+        $json = htmlspecialchars($json, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        $result = '';
+        $len = strlen($json);
+        $i = 0;
+
+        while ($i < $len) {
+            // Check for HTML entity &quot; (escaped double quote)
+            if ($i + 6 <= $len && substr($json, $i, 6) === '&quot;') {
+                $stringStart = $i;
+                $i += 6; // Skip opening &quot;
+
+                // Find closing &quot;, handling escaped content
+                while ($i < $len) {
+                    if ($i + 6 <= $len && substr($json, $i, 6) === '&quot;') {
+                        $i += 6; // Include closing &quot;
+                        break;
+                    }
+                    $i++;
+                }
+
+                $string = substr($json, $stringStart, $i - $stringStart);
+
+                // Check if this is a key (followed by colon)
+                $nextNonSpace = $i;
+                while ($nextNonSpace < $len && $json[$nextNonSpace] === ' ') {
+                    $nextNonSpace++;
+                }
+
+                $isKey = $nextNonSpace < $len && $json[$nextNonSpace] === ':';
+
+                if ($isKey) {
+                    $result .= '<span class="json-key">' . $string . '</span>';
+                } else {
+                    $result .= '<span class="json-string">' . $string . '</span>';
+                }
+                continue;
+            }
+
+            $char = $json[$i];
+
+            // Handle numbers
+            if (($char >= '0' && $char <= '9') || ($char === '-' && $i + 1 < $len && $json[$i + 1] >= '0' && $json[$i + 1] <= '9')) {
+                $numberStart = $i;
+
+                if ($char === '-') {
+                    $i++;
+                }
+
+                while ($i < $len && $json[$i] >= '0' && $json[$i] <= '9') {
+                    $i++;
+                }
+
+                if ($i < $len && $json[$i] === '.') {
+                    $i++;
+                    while ($i < $len && $json[$i] >= '0' && $json[$i] <= '9') {
+                        $i++;
+                    }
+                }
+
+                if ($i < $len && ($json[$i] === 'e' || $json[$i] === 'E')) {
+                    $i++;
+                    if ($i < $len && ($json[$i] === '+' || $json[$i] === '-')) {
+                        $i++;
+                    }
+                    while ($i < $len && $json[$i] >= '0' && $json[$i] <= '9') {
+                        $i++;
+                    }
+                }
+
+                $number = substr($json, $numberStart, $i - $numberStart);
+                $result .= '<span class="json-number">' . $number . '</span>';
+                continue;
+            }
+
+            // Handle boolean true
+            if ($i + 4 <= $len && substr($json, $i, 4) === 'true') {
+                $result .= '<span class="json-bool">true</span>';
+                $i += 4;
+                continue;
+            }
+
+            // Handle boolean false
+            if ($i + 5 <= $len && substr($json, $i, 5) === 'false') {
+                $result .= '<span class="json-bool">false</span>';
+                $i += 5;
+                continue;
+            }
+
+            // Handle null
+            if ($i + 4 <= $len && substr($json, $i, 4) === 'null') {
+                $result .= '<span class="json-null">null</span>';
+                $i += 4;
+                continue;
+            }
+
+            // Everything else (brackets, braces, colons, commas, spaces, newlines)
+            $result .= $char;
+            $i++;
+        }
+
+        return $result;
     }
 
     /**

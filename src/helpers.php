@@ -368,7 +368,7 @@ if (!function_exists('pd_auto_diff')) {
      */
     function pd_auto_diff(mixed $value, array $options = [], bool $output = true): ?string
     {
-        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10);
+        $trace = debug_backtrace();
         $location = DumpHistoryStorage::generateLocation($trace);
 
         $lastValue = DumpHistoryStorage::getLast($location);

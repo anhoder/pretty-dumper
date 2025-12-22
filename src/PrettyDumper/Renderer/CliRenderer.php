@@ -11,16 +11,17 @@ use Anhoder\PrettyDumper\Formatter\RenderedSegment;
 final class CliRenderer
 {
     private const COLOR_RESET = "\033[0m";
-    private const COLOR_TYPE = "\033[36m";           // Cyan for types
-    private const COLOR_KEY = "\033[33m";            // Yellow for keys
+    private const COLOR_TYPE = "\033[2;37m";         // Dim light gray for type labels (auxiliary info)
+    private const COLOR_KEY = "\033[93m";            // Bright Yellow for property names
     private const COLOR_STRING = "\033[32m";         // Green for strings
     private const COLOR_NUMBER = "\033[35m";         // Magenta for numbers
     private const COLOR_BOOL = "\033[34m";           // Blue for booleans
-    private const COLOR_NULL = "\033[90m";           // Gray for null
-    private const COLOR_ARRAY = "\033[36m";          // Cyan for arrays
-    private const COLOR_OBJECT = "\033[95m";         // Bright Magenta for objects
+    private const COLOR_NULL = "\033[2;37m";         // Dim light gray for null
+    private const COLOR_ARRAY = "\033[2;37m";        // Dim light gray for array headers (auxiliary)
+    private const COLOR_OBJECT = "\033[2;37m";       // Dim light gray for object headers (auxiliary)
     private const COLOR_NOTICE = "\033[35m";         // Magenta for notices
-    private const COLOR_EXPRESSION = "\033[90m";     // Bright black for expressions
+    private const COLOR_EXPRESSION = "\033[2;37m";   // Dim light gray for expressions
+    private const COLOR_MODIFIER = "\033[2;37m";     // Dim light gray for access modifiers (private/public/protected)
 
     private string $indentChar;
     private int $indentSize;
@@ -170,20 +171,20 @@ final class CliRenderer
     {
         $indent = $this->indent($depth);
         $rawKey = $segment->content();
-        $key = $this->colorize($rawKey, self::COLOR_KEY, $useColor);
+        $key = $this->colorizeKey($rawKey, $useColor);
         $children = $segment->children();
         $firstChild = reset($children);
         $value = $firstChild instanceof RenderedSegment ? $firstChild : null;
 
         if ($value === null) {
             $symbol = $isLast ? '└── ' : '├── ';
-            return $indent . $this->colorize($symbol, self::COLOR_KEY, $useColor) . $key;
+            return $indent . $this->colorize($symbol, self::COLOR_TYPE, $useColor) . $key;
         }
 
         // 添加视觉连接线，保持树形结构连续
         $symbol = $isLast ? '└── ' : '├── ';
-        $connector = $this->colorize($symbol, self::COLOR_KEY, $useColor);
-        $continuation = $this->colorize($isLast ? '    ' : '│   ', self::COLOR_KEY, $useColor);
+        $connector = $this->colorize($symbol, self::COLOR_TYPE, $useColor);
+        $continuation = $this->colorize($isLast ? '    ' : '│   ', self::COLOR_TYPE, $useColor);
 
         if ($value->children() === []) {
             $requiresMultilineAlignment = $value->type() === 'exception'
@@ -321,13 +322,122 @@ final class CliRenderer
                     // Split the formatted JSON into lines and indent each line
                     $jsonLines = explode("\n", $jsonContent);
                     foreach ($jsonLines as $jsonLine) {
-                        $lines[] = $indent . '  ' . $this->colorize($jsonLine, self::COLOR_STRING, $useColor);
+                        $highlightedLine = $this->highlightJsonForCli($jsonLine, $useColor);
+                        $lines[] = $indent . '  ' . $highlightedLine;
                     }
                 }
             }
         }
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Highlight JSON syntax for CLI output using single-pass scanning
+     */
+    private function highlightJsonForCli(string $jsonLine, bool $useColor): string
+    {
+        if (!$useColor) {
+            return $jsonLine;
+        }
+
+        $result = '';
+        $len = strlen($jsonLine);
+        $i = 0;
+
+        while ($i < $len) {
+            $char = $jsonLine[$i];
+
+            // Handle strings (both keys and values)
+            if ($char === '"') {
+                $stringStart = $i;
+                $i++; // Skip opening quote
+
+                // Find closing quote, handling escaped quotes
+                while ($i < $len && !($jsonLine[$i] === '"' && $jsonLine[$i - 1] !== '\\')) {
+                    $i++;
+                }
+
+                if ($i < $len) {
+                    $i++; // Include closing quote
+                }
+
+                $string = substr($jsonLine, $stringStart, $i - $stringStart);
+
+                // Check if this is a key (followed by colon)
+                $nextNonSpace = $i;
+                while ($nextNonSpace < $len && $jsonLine[$nextNonSpace] === ' ') {
+                    $nextNonSpace++;
+                }
+
+                $isKey = $nextNonSpace < $len && $jsonLine[$nextNonSpace] === ':';
+                $color = $isKey ? self::COLOR_KEY : self::COLOR_STRING;
+                $result .= $this->colorize($string, $color, true);
+                continue;
+            }
+
+            // Handle numbers
+            if (($char >= '0' && $char <= '9') || $char === '-') {
+                $numberStart = $i;
+
+                // Match number pattern: -?\d+\.?\d*([eE][+-]?\d+)?
+                if ($char === '-') {
+                    $i++;
+                }
+
+                while ($i < $len && $jsonLine[$i] >= '0' && $jsonLine[$i] <= '9') {
+                    $i++;
+                }
+
+                if ($i < $len && $jsonLine[$i] === '.') {
+                    $i++;
+                    while ($i < $len && $jsonLine[$i] >= '0' && $jsonLine[$i] <= '9') {
+                        $i++;
+                    }
+                }
+
+                if ($i < $len && ($jsonLine[$i] === 'e' || $jsonLine[$i] === 'E')) {
+                    $i++;
+                    if ($i < $len && ($jsonLine[$i] === '+' || $jsonLine[$i] === '-')) {
+                        $i++;
+                    }
+                    while ($i < $len && $jsonLine[$i] >= '0' && $jsonLine[$i] <= '9') {
+                        $i++;
+                    }
+                }
+
+                $number = substr($jsonLine, $numberStart, $i - $numberStart);
+                $result .= $this->colorize($number, self::COLOR_NUMBER, true);
+                continue;
+            }
+
+            // Handle boolean true
+            if ($i + 4 <= $len && substr($jsonLine, $i, 4) === 'true') {
+                $result .= $this->colorize('true', self::COLOR_BOOL, true);
+                $i += 4;
+                continue;
+            }
+
+            // Handle boolean false
+            if ($i + 5 <= $len && substr($jsonLine, $i, 5) === 'false') {
+                $result .= $this->colorize('false', self::COLOR_BOOL, true);
+                $i += 5;
+                continue;
+            }
+
+            // Handle null
+            if ($i + 4 <= $len && substr($jsonLine, $i, 4) === 'null') {
+                $result .= $this->colorize('null', self::COLOR_NULL, true);
+                $i += 4;
+                continue;
+            }
+
+            // Everything else (brackets, braces, colons, commas, spaces)
+            $result .= $char;
+            $i++;
+        }
+
+        return $result;
     }
 
     private function renderExceptionBlock(RenderedSegment $segment, int $depth): string
@@ -430,6 +540,51 @@ final class CliRenderer
         }
 
         return $color . $text . self::COLOR_RESET;
+    }
+
+    /**
+     * Colorize property key with separate colors for name and modifier.
+     * Examples:
+     *   [total:private(QueryComplexityResult)] => name=total, modifier=:private(QueryComplexityResult)
+     *   ['select_field_count'] => name='select_field_count', no modifier
+     */
+    private function colorizeKey(string $rawKey, bool $useColor): string
+    {
+        if (!$useColor) {
+            return $rawKey;
+        }
+
+        // Match patterns like [propertyName:modifier(ClassName)] or ['arrayKey']
+        // Pattern: [name:modifier(class)] or [name] or ['key'] or ["key"]
+        if (preg_match('/^\[([^\]:\'"]+)(:[^\]]+)?\]$/', $rawKey, $match)) {
+            // Object property with optional modifier: [total:private(QueryComplexityResult)]
+            $name = $match[1];
+            $modifier = $match[2] ?? '';
+
+            $coloredName = self::COLOR_KEY . '[' . $name . self::COLOR_RESET;
+            if ($modifier !== '') {
+                $coloredName .= self::COLOR_MODIFIER . $modifier . self::COLOR_RESET;
+            }
+            $coloredName .= self::COLOR_KEY . ']' . self::COLOR_RESET;
+
+            return $coloredName;
+        }
+
+        if (preg_match('/^\[([\'"])(.+)\1\]$/', $rawKey, $match)) {
+            // Array string key: ['key'] or ["key"]
+            $quote = $match[1];
+            $keyName = $match[2];
+
+            return self::COLOR_KEY . '[' . $quote . $keyName . $quote . ']' . self::COLOR_RESET;
+        }
+
+        if (preg_match('/^\[(\d+)\]$/', $rawKey, $match)) {
+            // Array numeric key: [0], [1], etc.
+            return self::COLOR_MODIFIER . $rawKey . self::COLOR_RESET;
+        }
+
+        // Fallback: colorize entire key
+        return self::COLOR_KEY . $rawKey . self::COLOR_RESET;
     }
 
     /**
