@@ -671,31 +671,43 @@ final class PrettyFormatter
         $properties = [];
         $reflectionClass = new \ReflectionClass($object);
 
-        // Get all declared properties (including inherited ones)
-        foreach ($reflectionClass->getProperties() as $property) {
-            $property->setAccessible(true);
-            $propertyName = $property->getName();
+        // Get all properties from the entire inheritance chain
+        // We need to traverse up the parent classes to get private properties from parent classes
+        $currentClass = $reflectionClass;
+        while ($currentClass !== false) {
+            foreach ($currentClass->getProperties() as $property) {
+                $property->setAccessible(true);
+                $propertyName = $property->getName();
 
-            // Add visibility prefix to the property name
-            if ($property->isPrivate()) {
-                $declaringClass = $property->getDeclaringClass()->getName();
-                $propertyName = "\0{$declaringClass}\0{$propertyName}";
-            } elseif ($property->isProtected()) {
-                $propertyName = "\0*\0{$propertyName}";
-            }
-
-            // Get the property value safely
-            try {
-                if ($property->isInitialized($object)) {
-                    $properties[$propertyName] = $property->getValue($object);
-                } else {
-                    // Uninitialized property (PHP 7.4+ typed properties)
-                    $properties[$propertyName] = '[uninitialized]';
+                // Add visibility prefix to the property name
+                if ($property->isPrivate()) {
+                    $declaringClass = $property->getDeclaringClass()->getName();
+                    $propertyName = "\0{$declaringClass}\0{$propertyName}";
+                } elseif ($property->isProtected()) {
+                    $propertyName = "\0*\0{$propertyName}";
                 }
-            } catch (\Throwable $e) {
-                // If we can't read the property for any reason, mark it as inaccessible
-                $properties[$propertyName] = '[inaccessible]';
+
+                // Avoid duplicate properties (parent's public/protected might already be included)
+                if (array_key_exists($propertyName, $properties)) {
+                    continue;
+                }
+
+                // Get the property value safely
+                try {
+                    if ($property->isInitialized($object)) {
+                        $properties[$propertyName] = $property->getValue($object);
+                    } else {
+                        // Uninitialized property (PHP 7.4+ typed properties)
+                        $properties[$propertyName] = '[uninitialized]';
+                    }
+                } catch (\Throwable $e) {
+                    // If we can't read the property for any reason, mark it as inaccessible
+                    $properties[$propertyName] = '[inaccessible]';
+                }
             }
+
+            // Move up to the parent class
+            $currentClass = $currentClass->getParentClass();
         }
 
         // For objects like stdClass that have dynamic properties,
