@@ -864,7 +864,7 @@ final class WebRenderer
         }
 
         $attrString = $this->attributesToString($attributes);
-        $content = htmlspecialchars($segment->content(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $content = htmlspecialchars($segment->content(), ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         if ($segment->type() === 'exception') {
             return $this->renderExceptionTrace($segment, $attrString, $content);
@@ -1183,7 +1183,7 @@ final class WebRenderer
 
     private function escape(string $value): string
     {
-        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return htmlspecialchars($value, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     private function escapeAttr(string $value): string
@@ -1302,7 +1302,7 @@ final class WebRenderer
         $formatted = [];
         foreach ($args as $arg) {
             if (is_string($arg)) {
-                $formatted[] = sprintf('\'%s\'', htmlspecialchars($arg, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+                $formatted[] = sprintf('\'%s\'', htmlspecialchars($arg, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'));
             } elseif (is_numeric($arg)) {
                 $formatted[] = (string)$arg;
             } elseif (is_bool($arg)) {
@@ -1357,10 +1357,10 @@ final class WebRenderer
                     '<div class="stack-location">%s:%s</div>' .
                     '</div>',
                     $index,
-                    htmlspecialchars($fullFunction, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    htmlspecialchars($fullFunction, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                     $argsStr,
-                    htmlspecialchars($fileName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-                    htmlspecialchars((string) $lineNumber, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    htmlspecialchars($fileName, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    htmlspecialchars((string) $lineNumber, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                 );
             }
 
@@ -1493,7 +1493,7 @@ final class WebRenderer
     private function highlightJsonForWeb(string $json): string
     {
         // Escape HTML first
-        $json = htmlspecialchars($json, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $json = htmlspecialchars($json, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         $result = '';
         $len = strlen($json);
