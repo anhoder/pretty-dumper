@@ -363,12 +363,6 @@ Web 渲染支持所有现代浏览器：
 
 MIT License
 
-## 相关链接
-
-- [快速开始指南](docs/quickstart.md)
-- [API 文档](docs/api.md)
-- [更新日志](CHANGELOG.md)
-
 ---
 
 <div align="center">
