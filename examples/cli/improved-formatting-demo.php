@@ -4,9 +4,9 @@
 declare(strict_types=1);
 
 /**
- * 改进后的格式化功能演示
+ * Improved Formatting Features Demo
  *
- * 展示新的缩进配置、颜色区分和视觉改进
+ * Demonstrates new indent configuration, color distinction, and visual improvements
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
@@ -16,17 +16,17 @@ use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
 use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
 use Anhoder\PrettyDumper\Renderer\CliRenderer;
 
-echo "\n🎨 PrettyDumper 改进格式化功能演示\n";
+echo "\n🎨 PrettyDumper Improved Formatting Features Demo\n";
 echo str_repeat("=", 60) . "\n\n";
 
-// 示例数据
+// Sample data
 $sampleData = [
     'company' => [
         'name' => 'TechCorp',
         'employees' => [
             [
                 'id' => 1,
-                'name' => '张三',
+                'name' => 'Alice',
                 'position' => 'Senior Developer',
                 'skills' => ['PHP', 'Laravel', 'Vue.js', 'MySQL'],
                 'active' => true,
@@ -35,7 +35,7 @@ $sampleData = [
             ],
             [
                 'id' => 2,
-                'name' => '李四',
+                'name' => 'Bob',
                 'position' => 'DevOps Engineer',
                 'skills' => ['Docker', 'Kubernetes', 'AWS'],
                 'active' => false,
@@ -63,8 +63,8 @@ $sampleData = [
     ],
 ];
 
-// 演示1: 默认配置（4空格缩进）
-echo "📋 演示1: 默认配置（4空格缩进）\n";
+// Demo 1: Default configuration (4-space indent)
+echo "📋 Demo 1: Default configuration (4-space indent)\n";
 echo str_repeat("-", 40) . "\n";
 
 $defaultConfig = new FormatterConfiguration();
@@ -74,8 +74,8 @@ $request1 = new DumpRenderRequest($sampleData, 'cli');
 echo $renderer1->render($request1);
 echo "\n\n";
 
-// 演示2: 2空格缩进 - 更紧凑
-echo "📋 演示2: 2空格缩进（更紧凑）\n";
+// Demo 2: 2-space indent - more compact
+echo "📋 Demo 2: 2-space indent (more compact)\n";
 echo str_repeat("-", 40) . "\n";
 
 $compactConfig = new FormatterConfiguration([
@@ -88,8 +88,8 @@ $request2 = new DumpRenderRequest($sampleData, 'cli');
 echo $renderer2->render($request2);
 echo "\n\n";
 
-// 演示3: Tab缩进
-echo "📋 演示3: Tab缩进\n";
+// Demo 3: Tab indent
+echo "📋 Demo 3: Tab indent\n";
 echo str_repeat("-", 40) . "\n";
 
 $tabConfig = new FormatterConfiguration([
@@ -101,23 +101,23 @@ $request3 = new DumpRenderRequest($sampleData, 'cli');
 echo $renderer3->render($request3);
 echo "\n\n";
 
-// 演示4: 不同类型数据的颜色区分
-echo "📋 演示4: 各种数据类型的颜色区分\n";
+// Demo 4: Color distinction for different data types
+echo "📋 Demo 4: Color distinction for various data types\n";
 echo str_repeat("-", 40) . "\n";
 
 $typeDemoData = [
-    '字符串' => 'Hello World',
-    '整数' => 42,
-    '浮点数' => 3.14159,
-    '布尔值真' => true,
-    '布尔值假' => false,
-    '空值' => null,
-    '数组' => [1, 2, 3, 4, 5],
-    '对象' => new stdClass(),
-    '嵌套结构' => [
+    'string' => 'Hello World',
+    'integer' => 42,
+    'float' => 3.14159,
+    'boolean_true' => true,
+    'boolean_false' => false,
+    'null' => null,
+    'array' => [1, 2, 3, 4, 5],
+    'object' => new stdClass(),
+    'nested_structure' => [
         'level1' => [
             'level2' => [
-                'level3' => '深层值',
+                'level3' => 'Deep value',
             ],
         ],
     ],
@@ -129,8 +129,8 @@ $request4 = new DumpRenderRequest($typeDemoData, 'cli');
 echo $renderer4->render($request4);
 echo "\n\n";
 
-// 演示5: 复杂嵌套结构
-echo "📋 演示5: 复杂嵌套结构展示\n";
+// Demo 5: Complex nested structure
+echo "📋 Demo 5: Complex nested structure demonstration\n";
 echo str_repeat("-", 40) . "\n";
 
 $complexData = [
@@ -141,7 +141,7 @@ $complexData = [
                 'port' => 3306,
                 'database' => 'myapp',
                 'username' => 'root',
-                'password' => 'secret123', // 这将被脱敏
+                'password' => 'secret123', // This will be redacted
                 'options' => [
                     'charset' => 'utf8mb4',
                     'collation' => 'utf8mb4_unicode_ci',
@@ -151,7 +151,7 @@ $complexData = [
             'redis' => [
                 'host' => '127.0.0.1',
                 'port' => 6379,
-                'password' => 'redis-pass', // 这将被脱敏
+                'password' => 'redis-pass', // This will be redacted
                 'database' => 0,
             ],
         ],
@@ -175,23 +175,23 @@ $request5 = new DumpRenderRequest($complexData, 'cli');
 echo $renderer5->render($request5);
 
 echo "\n" . str_repeat("=", 60) . "\n";
-echo "✅ 改进格式化功能演示完成！\n\n";
+echo "✅ Improved formatting features demo completed!\n\n";
 
-echo "🎯 主要改进总结：\n";
-echo "1. ✅ 可配置缩进（空格数、Tab/空格选择）\n";
-echo "2. ✅ 增强的视觉区分（▶/▼ 图标，树形连接线 ├── ）\n";
-echo "3. ✅ 类型专用颜色方案：\n";
-echo "   - 🟢 字符串：绿色\n";
-echo "   - 🟣 数字：洋红色\n";
-echo "   - 🔵 布尔值：蓝色\n";
-echo "   - ⚫ 空值：灰色\n";
-echo "   - 🟠 数组：青色\n";
-echo "   - 🟣 对象：亮洋红色\n";
-echo "4. ✅ 保持高性能和向后兼容性\n";
-echo "5. ✅ 支持敏感信息自动脱敏\n\n";
+echo "🎯 Key improvements summary:\n";
+echo "1. ✅ Configurable indentation (space count, tab/space selection)\n";
+echo "2. ✅ Enhanced visual distinction (▶/▼ icons, tree lines ├── )\n";
+echo "3. ✅ Type-specific color scheme:\n";
+echo "   - 🟢 Strings: Green\n";
+echo "   - 🟣 Numbers: Magenta\n";
+echo "   - 🔵 Booleans: Blue\n";
+echo "   - ⚫ Null: Gray\n";
+echo "   - 🟠 Arrays: Cyan\n";
+echo "   - 🟣 Objects: Bright magenta\n";
+echo "4. ✅ Maintains high performance and backward compatibility\n";
+echo "5. ✅ Supports automatic sensitive data redaction\n\n";
 
-echo "💡 使用建议：\n";
-echo "- 小屏幕或紧凑输出：使用2空格缩进\n";
-echo "- 标准开发环境：使用默认4空格缩进\n";
-echo "- 深度嵌套数据：考虑使用Tab缩进\n";
-echo "- 生产环境日志：配合脱敏规则使用\n";
+echo "💡 Usage tips:\n";
+echo "- Small screens or compact output: Use 2-space indent\n";
+echo "- Standard dev environment: Use default 4-space indent\n";
+echo "- Deeply nested data: Consider using tab indent\n";
+echo "- Production logs: Use with redaction rules\n";

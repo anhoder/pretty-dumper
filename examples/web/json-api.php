@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 /**
- * PrettyDumper JSON API 数据处理示例
+ * PrettyDumper JSON API Data Processing Example
  *
- * 运行: php -S localhost:8081 examples/web/json-api.php
- * 然后访问: http://localhost:8081
+ * Run: php -S localhost:8081 examples/web/json-api.php
+ * Then visit: http://localhost:8081
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
@@ -16,18 +16,18 @@ use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
 use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
 use Anhoder\PrettyDumper\Renderer\WebRenderer;
 
-// 模拟 API 响应数据
+// Simulate API response data
 $apiResponses = [
     'users' => [
         'status' => 'success',
         'data' => [
             [
                 'id' => 1,
-                'name' => '张三',
-                'email' => 'zhangsan@example.com',
+                'name' => 'Alice Zhang',
+                'email' => 'alice@example.com',
                 'profile' => [
                     'avatar' => 'https://example.com/avatar1.jpg',
-                    'bio' => '全栈开发工程师',
+                    'bio' => 'Full Stack Developer',
                     'skills' => ['PHP', 'JavaScript', 'Python', 'Go'],
                 ],
                 'created_at' => '2024-01-15T10:30:00Z',
@@ -35,11 +35,11 @@ $apiResponses = [
             ],
             [
                 'id' => 2,
-                'name' => '李四',
-                'email' => 'lisi@example.com',
+                'name' => 'Bob Lee',
+                'email' => 'bob@example.com',
                 'profile' => [
                     'avatar' => 'https://example.com/avatar2.jpg',
-                    'bio' => 'UI/UX 设计师',
+                    'bio' => 'UI/UX Designer',
                     'skills' => ['Figma', 'Sketch', 'Photoshop', 'Illustrator'],
                 ],
                 'created_at' => '2024-02-01T09:15:00Z',
@@ -60,15 +60,15 @@ $apiResponses = [
             [
                 'id' => 101,
                 'name' => 'MacBook Pro',
-                'description' => '14英寸 MacBook Pro，M3芯片',
+                'description' => '14-inch MacBook Pro, M3 chip',
                 'price' => 15999.00,
                 'currency' => 'CNY',
-                'categories' => ['电子产品', '电脑', '笔记本'],
+                'categories' => ['Electronics', 'Computers', 'Laptops'],
                 'specifications' => [
                     'processor' => 'Apple M3',
                     'memory' => '16GB',
                     'storage' => '512GB SSD',
-                    'display' => '14.2英寸 Liquid Retina XDR',
+                    'display' => '14.2-inch Liquid Retina XDR',
                 ],
                 'in_stock' => true,
                 'rating' => 4.8,
@@ -77,15 +77,15 @@ $apiResponses = [
             [
                 'id' => 102,
                 'name' => 'iPhone 15 Pro',
-                'description' => '6.1英寸 iPhone 15 Pro，A17 Pro芯片',
+                'description' => '6.1-inch iPhone 15 Pro, A17 Pro chip',
                 'price' => 8999.00,
                 'currency' => 'CNY',
-                'categories' => ['电子产品', '手机'],
+                'categories' => ['Electronics', 'Mobile Phones'],
                 'specifications' => [
                     'processor' => 'A17 Pro',
                     'memory' => '8GB',
                     'storage' => '256GB',
-                    'display' => '6.1英寸 Super Retina XDR',
+                    'display' => '6.1-inch Super Retina XDR',
                 ],
                 'in_stock' => false,
                 'rating' => 4.6,
@@ -96,16 +96,16 @@ $apiResponses = [
 
     'error' => [
         'status' => 'error',
-        'message' => '请求参数无效',
+        'message' => 'Invalid request parameters',
         'errors' => [
             [
                 'field' => 'email',
-                'message' => '邮箱格式不正确',
+                'message' => 'Invalid email format',
                 'code' => 'INVALID_EMAIL',
             ],
             [
                 'field' => 'password',
-                'message' => '密码长度至少8位',
+                'message' => 'Password must be at least 8 characters',
                 'code' => 'PASSWORD_TOO_SHORT',
             ],
         ],
@@ -114,7 +114,7 @@ $apiResponses = [
     ],
 ];
 
-// 配置
+// Configuration
 $configuration = new FormatterConfiguration([
     'maxDepth' => 6,
     'maxItems' => 100,
@@ -122,14 +122,14 @@ $configuration = new FormatterConfiguration([
 ]);
 
 $formatter = PrettyFormatter::forChannel('web', $configuration);
-$themes = \PrettyDumper\Support\ThemeRegistry::withDefaults();
+$themes = \Anhoder\PrettyDumper\Support\ThemeRegistry::withDefaults();
 $renderer = new WebRenderer($formatter, $themes);
 
-// 获取演示类型
+// Get demo type
 $demo = $_GET['demo'] ?? 'users';
 $responseData = $apiResponses[$demo] ?? $apiResponses['users'];
 
-// 添加额外的调试信息
+// Add additional debug information
 $debugInfo = [
     'api_response' => $responseData,
     'debug' => [
@@ -158,11 +158,11 @@ function formatBytes(int $bytes, int $precision = 2): string
 ?>
 
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PrettyDumper JSON API 示例</title>
+    <title>PrettyDumper JSON API Example</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -261,85 +261,85 @@ function formatBytes(int $bytes, int $precision = 2): string
 </head>
 <body>
     <div class="container">
-        <h1>PrettyDumper JSON API 示例</h1>
-        <p>展示如何使用 PrettyDumper 格式化和显示 JSON API 响应数据</p>
+        <h1>PrettyDumper JSON API Example</h1>
+        <p>Demonstrates how to format and display JSON API response data using PrettyDumper</p>
 
         <div class="nav">
-            <a href="?demo=users" class="?php echo $demo === 'users' ? 'active' : ''; ?">用户数据</a>
-            <a href="?demo=products" class="?php echo $demo === 'products' ? 'active' : ''; ?">产品数据</a>
-            <a href="?demo=error" class="?php echo $demo === 'error' ? 'active' : ''; ?">错误响应</a>
+            <a href="?demo=users" class="?php echo $demo === 'users' ? 'active' : ''; ?">User Data</a>
+            <a href="?demo=products" class="?php echo $demo === 'products' ? 'active' : ''; ?">Product Data</a>
+            <a href="?demo=error" class="?php echo $demo === 'error' ? 'active' : ''; ?">Error Response</a>
         </div>
 
         <?php
         switch ($demo) {
             case 'users':
-                echo '<h2>用户数据 API 响应</h2>';
+                echo '<h2>User Data API Response</h2>';
                 echo '<div class="api-info">';
-                echo '<strong>API 端点：</strong> GET /api/users<br>';
-                echo '<strong>状态：</strong> <span class="status-success">200 OK</span><br>';
-                echo '<strong>描述：</strong> 获取用户列表，包含个人资料和技能信息';
+                echo '<strong>API Endpoint:</strong> GET /api/users<br>';
+                echo '<strong>Status:</strong> <span class="status-success">200 OK</span><br>';
+                echo '<strong>Description:</strong> Get user list with profiles and skills';
                 echo '</div>';
 
                 echo '<div class="feature-grid">';
                 echo '<div class="feature-card">';
-                echo '<h4>嵌套数据结构</h4>';
-                echo '<p>展示用户信息和嵌套的个人资料数据</p>';
+                echo '<h4>Nested Data Structure</h4>';
+                echo '<p>Display user information and nested profile data</p>';
                 echo '</div>';
                 echo '<div class="feature-card">';
-                echo '<h4>多语言支持</h4>';
-                echo '<p>中文姓名和描述的正确显示</p>';
+                echo '<h4>Multi-language Support</h4>';
+                echo '<p>Proper display of names and descriptions</p>';
                 echo '</div>';
                 echo '<div class="feature-card">';
-                echo '<h4>时间格式</h4>';
-                echo '<p>ISO 8601 标准时间格式解析</p>';
+                echo '<h4>Time Format</h4>';
+                echo '<p>ISO 8601 standard time format parsing</p>';
                 echo '</div>';
                 echo '</div>';
                 break;
 
             case 'products':
-                echo '<h2>产品数据 API 响应</h2>';
+                echo '<h2>Product Data API Response</h2>';
                 echo '<div class="api-info">';
-                echo '<strong>API 端点：</strong> GET /api/products<br>';
-                echo '<strong>状态：</strong> <span class="status-success">200 OK</span><br>';
-                echo '<strong>描述：</strong> 获取产品目录，包含详细规格和库存状态';
+                echo '<strong>API Endpoint:</strong> GET /api/products<br>';
+                echo '<strong>Status:</strong> <span class="status-success">200 OK</span><br>';
+                echo '<strong>Description:</strong> Get product catalog with detailed specifications and stock status';
                 echo '</div>';
 
                 echo '<div class="feature-grid">';
                 echo '<div class="feature-card">';
-                echo '<h4>复杂规格数据</h4>';
-                echo '<p>嵌套的规格参数和技术细节</p>';
+                echo '<h4>Complex Specification Data</h4>';
+                echo '<p>Nested specification parameters and technical details</p>';
                 echo '</div>';
                 echo '<div class="feature-card">';
-                echo '<h4>价格和货币</h4>';
-                echo '<p>货币格式和价格信息的清晰展示</p>';
+                echo '<h4>Price and Currency</h4>';
+                echo '<p>Clear display of currency format and price information</p>';
                 echo '</div>';
                 echo '<div class="feature-card">';
-                echo '<h4>库存状态</h4>';
-                echo '<p>布尔值和评分的可视化表示</p>';
+                echo '<h4>Stock Status</h4>';
+                echo '<p>Visual representation of boolean values and ratings</p>';
                 echo '</div>';
                 echo '</div>';
                 break;
 
             case 'error':
-                echo '<h2>错误响应 API 示例</h2>';
+                echo '<h2>Error Response API Example</h2>';
                 echo '<div class="api-info">';
-                echo '<strong>API 端点：</strong> POST /api/users<br>';
-                echo '<strong>状态：</strong> <span class="status-error">400 Bad Request</span><br>';
-                echo '<strong>描述：</strong> 表单验证失败，返回详细的错误信息';
+                echo '<strong>API Endpoint:</strong> POST /api/users<br>';
+                echo '<strong>Status:</strong> <span class="status-error">400 Bad Request</span><br>';
+                echo '<strong>Description:</strong> Form validation failed, returns detailed error information';
                 echo '</div>';
 
                 echo '<div class="feature-grid">';
                 echo '<div class="feature-card">';
-                echo '<h4>错误字段映射</h4>';
-                echo '<p>详细的字段级别错误信息和代码</p>';
+                echo '<h4>Error Field Mapping</h4>';
+                echo '<p>Detailed field-level error information and codes</p>';
                 echo '</div>';
                 echo '<div class="feature-card">';
-                echo '<h4>时间戳和追踪</h4>';
-                echo '<p>错误发生时间和请求ID用于调试</p>';
+                echo '<h4>Timestamp and Tracking</h4>';
+                echo '<p>Error occurrence time and request ID for debugging</p>';
                 echo '</div>';
                 echo '<div class="feature-card">';
-                echo '<h4>多语言错误</h4>';
-                echo '<p>中文错误信息的清晰展示</p>';
+                echo '<h4>Multi-language Errors</h4>';
+                echo '<p>Clear display of error messages</p>';
                 echo '</div>';
                 echo '</div>';
                 break;
@@ -347,7 +347,7 @@ function formatBytes(int $bytes, int $precision = 2): string
         ?>
 
         <div class="demo-section">
-            <h3>格式化的 API 响应数据</h3>
+            <h3>Formatted API Response Data</h3>
             <?php
             $request = new DumpRenderRequest($debugInfo, 'web');
             echo $renderer->render($request);
@@ -355,13 +355,13 @@ function formatBytes(int $bytes, int $precision = 2): string
         </div>
 
         <div class="demo-section">
-            <h3>调试信息</h3>
-            <p>包含请求信息和内存使用情况的调试数据：</p>
+            <h3>Debug Information</h3>
+            <p>Debug data including request information and memory usage:</p>
             <ul>
-                <li><strong>请求方法：</strong> <?php echo $_SERVER['REQUEST_METHOD'] ?? 'GET'; ?></li>
-                <li><strong>请求URI：</strong> <?php echo htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/'); ?></li>
-                <li><strong>当前时间：</strong> <?php echo date('Y-m-d H:i:s'); ?></li>
-                <li><strong>内存使用：</strong> <?php echo formatBytes(memory_get_usage(true)); ?></li>
+                <li><strong>Request Method:</strong> <?php echo $_SERVER['REQUEST_METHOD'] ?? 'GET'; ?></li>
+                <li><strong>Request URI:</strong> <?php echo htmlspecialchars($_SERVER['REQUEST_URI'] ?? '/'); ?></li>
+                <li><strong>Current Time:</strong> <?php echo date('Y-m-d H:i:s'); ?></li>
+                <li><strong>Memory Usage:</strong> <?php echo formatBytes(memory_get_usage(true)); ?></li>
             </ul>
         </div>
     </div>
@@ -370,23 +370,23 @@ function formatBytes(int $bytes, int $precision = 2): string
 
 <?php
 /**
- * 启动说明：
+ * Startup instructions:
  *
- * 1. 在终端中运行：
+ * 1. Run in terminal:
  *    php -S localhost:8081 examples/web/json-api.php
  *
- * 2. 在浏览器中访问：
+ * 2. Visit in browser:
  *    http://localhost:8081
  *    http://localhost:8081?demo=users
  *    http://localhost:8081?demo=products
  *    http://localhost:8081?demo=error
  *
- * 3. 特性说明：
- *    - 支持中文内容显示
- *    - 处理复杂的嵌套JSON结构
- *    - 时间戳和日期格式化
- *    - 价格和数值的清晰展示
- *    - 布尔值和状态的可视化
- *    - 内存使用监控
- *    - 响应式Web界面
+ * 3. Features:
+ *    - Multi-language content support
+ *    - Handle complex nested JSON structures
+ *    - Timestamp and date formatting
+ *    - Clear display of prices and numbers
+ *    - Visualization of boolean values and statuses
+ *    - Memory usage monitoring
+ *    - Responsive web interface
  */

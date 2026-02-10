@@ -6,6 +6,7 @@
   "require": {
     "php": "^8.0"
   },
+  "bin": "bin/pretty-dump",
   "require-dev": {
     "pestphp/pest": "^1.23",
     "phpstan/phpstan": "^2.1"

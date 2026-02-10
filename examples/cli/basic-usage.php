@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 /**
- * PrettyDumper CLI 基本使用示例
+ * PrettyDumper CLI Basic Usage Example
  *
- * 运行: php examples/cli/basic-usage.php
+ * Run: php examples/cli/basic-usage.php
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
@@ -15,9 +15,9 @@ use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
 use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
 use Anhoder\PrettyDumper\Renderer\CliRenderer;
 
-echo "=== PrettyDumper CLI 基本示例 ===\n\n";
+echo "=== PrettyDumper CLI Basic Example ===\n\n";
 
-// 基本配置
+// Basic configuration
 $configuration = new FormatterConfiguration([
     'maxDepth' => 3,
     'maxItems' => 50,
@@ -27,15 +27,15 @@ $configuration = new FormatterConfiguration([
 $formatter = PrettyFormatter::forChannel('cli', $configuration);
 $renderer = new CliRenderer($formatter);
 
-// 示例1: 简单数组
-echo "1. 简单数组:\n";
+// Example 1: Simple array
+echo "1. Simple array:\n";
 $simpleArray = ['name' => 'John', 'age' => 30, 'city' => 'New York'];
 $request = new DumpRenderRequest($simpleArray, 'cli');
 echo $renderer->render($request);
 echo "\n";
 
-// 示例2: 嵌套数据结构
-echo "2. 嵌套数据结构:\n";
+// Example 2: Nested data structure
+echo "2. Nested data structure:\n";
 $nestedData = [
     'user' => [
         'id' => 1,
@@ -57,8 +57,8 @@ $request = new DumpRenderRequest($nestedData, 'cli');
 echo $renderer->render($request);
 echo "\n";
 
-// 示例3: 对象和类实例
-echo "3. 对象和类实例:\n";
+// Example 3: Objects and class instances
+echo "3. Objects and class instances:\n";
 class User {
     public function __construct(
         public string $name,
@@ -72,8 +72,8 @@ $request = new DumpRenderRequest($user, 'cli');
 echo $renderer->render($request);
 echo "\n";
 
-// 示例4: 大数据结构（截断演示）
-echo "4. 大数据结构（截断演示）:\n";
+// Example 4: Large data structure (truncation demo)
+echo "4. Large data structure (truncation demo):\n";
 $largeArray = [];
 for ($i = 0; $i < 100; $i++) {
     $largeArray["item_$i"] = [
@@ -86,4 +86,4 @@ $request = new DumpRenderRequest($largeArray, 'cli');
 echo $renderer->render($request);
 echo "\n";
 
-echo "=== 示例完成 ===\n";
+echo "=== Examples completed ===\n";

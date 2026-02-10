@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 /**
- * PrettyDumper 异常处理示例
+ * PrettyDumper Exception Handling Example
  *
- * 运行: php examples/cli/exception-handling.php
+ * Run: php examples/cli/exception-handling.php
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
@@ -15,9 +15,9 @@ use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
 use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
 use Anhoder\PrettyDumper\Renderer\CliRenderer;
 
-echo "=== PrettyDumper 异常处理示例 ===\n\n";
+echo "=== PrettyDumper Exception Handling Example ===\n\n";
 
-// 配置显示异常信息
+// Configure exception display
 $configuration = new FormatterConfiguration([
     'expandExceptions' => true,
     'showContext' => true,
@@ -27,27 +27,27 @@ $configuration = new FormatterConfiguration([
 $formatter = PrettyFormatter::forChannel('cli', $configuration);
 $renderer = new CliRenderer($formatter);
 
-// 示例1: 简单异常
-echo "1. 简单异常:\n";
+// Example 1: Simple exception
+echo "1. Simple exception:\n";
 try {
-    throw new RuntimeException('数据库连接失败');
+    throw new RuntimeException('Database connection failed');
 } catch (Exception $e) {
     $request = new DumpRenderRequest($e, 'cli');
     echo $renderer->render($request);
 }
 echo "\n";
 
-// 示例2: 嵌套异常
-echo "2. 嵌套异常链:\n";
+// Example 2: Nested exception
+echo "2. Nested exception chain:\n";
 try {
     try {
         try {
-            throw new InvalidArgumentException('无效的参数值');
+            throw new InvalidArgumentException('Invalid parameter value');
         } catch (InvalidArgumentException $e) {
-            throw new LogicException('业务逻辑错误', 0, $e);
+            throw new LogicException('Business logic error', 0, $e);
         }
     } catch (LogicException $e) {
-        throw new RuntimeException('系统运行错误', 500, $e);
+        throw new RuntimeException('System runtime error', 500, $e);
     }
 } catch (Exception $e) {
     $request = new DumpRenderRequest($e, 'cli');
@@ -55,8 +55,8 @@ try {
 }
 echo "\n";
 
-// 示例3: 自定义异常类
-echo "3. 自定义异常类:\n";
+// Example 3: Custom exception class
+echo "3. Custom exception class:\n";
 
 class ValidationException extends Exception
 {
@@ -76,49 +76,49 @@ class ValidationException extends Exception
 
 try {
     $errors = [
-        'username' => '用户名已存在',
-        'email' => '邮箱格式不正确',
-        'password' => '密码长度至少8位',
+        'username' => 'Username already exists',
+        'email' => 'Invalid email format',
+        'password' => 'Password must be at least 8 characters',
     ];
-    throw new ValidationException('表单验证失败', $errors);
+    throw new ValidationException('Form validation failed', $errors);
 } catch (ValidationException $e) {
     $request = new DumpRenderRequest($e, 'cli');
     echo $renderer->render($request);
 }
 echo "\n";
 
-// 示例4: 包含上下文的异常
-echo "4. 包含请求上下文的异常:\n";
+// Example 4: Exception with context
+echo "4. Exception with request context:\n";
 
 function processRequest(array $data): void
 {
     if (empty($data['user_id'])) {
-        throw new InvalidArgumentException('用户ID不能为空');
+        throw new InvalidArgumentException('User ID cannot be empty');
     }
 
     if (!is_numeric($data['amount'])) {
-        throw new InvalidArgumentException('金额必须是数字');
+        throw new InvalidArgumentException('Amount must be a number');
     }
 
     if ($data['amount'] < 0) {
-        throw new InvalidArgumentException('金额不能为负数');
+        throw new InvalidArgumentException('Amount cannot be negative');
     }
 
-    // 模拟处理逻辑
-    throw new RuntimeException('处理请求时发生未知错误');
+    // Simulate processing logic
+    throw new RuntimeException('Unknown error occurred while processing request');
 }
 
 try {
     $requestData = [
         'user_id' => '',
         'amount' => '-100',
-        'description' => '测试支付',
+        'description' => 'Test payment',
         'timestamp' => time(),
     ];
 
     processRequest($requestData);
 } catch (Exception $e) {
-    // 创建包含请求数据的复合信息
+    // Create compound information with request data
     $context = [
         'exception' => $e,
         'request_data' => $requestData,
@@ -134,4 +134,4 @@ try {
 }
 echo "\n";
 
-echo "=== 异常处理示例完成 ===\n";
+echo "=== Exception handling examples completed ===\n";

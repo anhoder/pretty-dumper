@@ -4,11 +4,11 @@
 declare(strict_types=1);
 
 /**
- * PrettyDumper 示例运行器
+ * PrettyDumper Example Runner
  *
- * 运行: php examples/run-examples.php
+ * Run: php examples/run-examples.php
  *
- * 这个脚本提供了一个交互式的菜单来运行不同的示例
+ * This script provides an interactive menu to run different examples
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -22,32 +22,33 @@ function displayBanner(): void
 {
     echo "\n";
     echo "╔══════════════════════════════════════════════════════════════╗\n";
-    echo "║                    PrettyDumper 示例运行器                  ║\n";
+    echo "║                  PrettyDumper Example Runner                 ║\n";
     echo "║                                                              ║\n";
-    echo "║  强大的 PHP 调试工具 - 美化输出变量、异常和调用栈信息       ║\n";
+    echo "║  Powerful PHP debugging tool - Beautiful output for vars,   ║\n";
+    echo "║             exceptions and stack trace information          ║\n";
     echo "╚══════════════════════════════════════════════════════════════╝\n";
     echo "\n";
 }
 
 function displayMenu(): int
 {
-    echo "请选择要运行的示例：\n\n";
-    echo "1. CLI 基本使用示例\n";
-    echo "2. CLI 异常处理示例\n";
-    echo "3. 性能测试示例\n";
-    echo "4. 配置选项演示\n";
-    echo "5. 敏感信息脱敏演示\n";
-    echo "6. 主题切换演示\n";
-    echo "7. 退出\n\n";
+    echo "Please select an example to run:\n\n";
+    echo "1. CLI Basic Usage Example\n";
+    echo "2. CLI Exception Handling Example\n";
+    echo "3. Performance Test Example\n";
+    echo "4. Configuration Options Demo\n";
+    echo "5. Sensitive Data Redaction Demo\n";
+    echo "6. Theme Switching Demo\n";
+    echo "7. Exit\n\n";
 
-    $input = readline("请输入选项编号 (1-7): ");
+    $input = readline("Please enter option number (1-7): ");
     $choice = $input !== false ? trim($input) : '';
     return (int) $choice;
 }
 
 function runBasicExample(): void
 {
-    echo "\n🚀 运行 CLI 基本使用示例...\n\n";
+    echo "\n🚀 Running CLI basic usage example...\n\n";
 
     $configuration = new FormatterConfiguration([
         'maxDepth' => 3,
@@ -86,7 +87,7 @@ function runBasicExample(): void
 
 function runExceptionExample(): void
 {
-    echo "\n⚡ 运行异常处理示例...\n\n";
+    echo "\n⚡ Running exception handling example...\n\n";
 
     $configuration = new FormatterConfiguration([
         'expandExceptions' => true,
@@ -98,7 +99,7 @@ function runExceptionExample(): void
     $renderer = new CliRenderer($formatter);
 
     try {
-        throw new RuntimeException('数据库连接失败', 500);
+        throw new RuntimeException('Database connection failed', 500);
     } catch (\Exception $e) {
         $exceptionData = [
             'error' => $e,
@@ -123,7 +124,7 @@ function runExceptionExample(): void
 
 function runPerformanceExample(): void
 {
-    echo "\n⚡ 运行性能测试示例...\n\n";
+    echo "\n⚡ Running performance test example...\n\n";
 
     $configuration = new FormatterConfiguration([
         'maxItems' => 100,
@@ -133,11 +134,11 @@ function runPerformanceExample(): void
     $formatter = PrettyFormatter::forChannel('cli', $configuration);
     $renderer = new CliRenderer($formatter);
 
-    echo "生成测试数据...\n";
+    echo "Generating test data...\n";
     $startTime = microtime(true);
     $startMemory = memory_get_usage(true);
 
-    // 生成大量数据
+    // Generate large dataset
     $largeArray = [];
     for ($i = 0; $i < 1000; $i++) {
         $largeArray[] = [
@@ -153,10 +154,10 @@ function runPerformanceExample(): void
     }
 
     $generateEndTime = microtime(true);
-    echo "数据生成完成，用时: " . number_format(($generateEndTime - $startTime) * 1000, 2) . "ms\n";
-    echo "内存使用: " . formatBytes(memory_get_usage(true) - $startMemory) . "\n\n";
+    echo "Data generation completed, time: " . number_format(($generateEndTime - $startTime) * 1000, 2) . "ms\n";
+    echo "Memory usage: " . formatBytes(memory_get_usage(true) - $startMemory) . "\n\n";
 
-    echo "开始格式化...\n";
+    echo "Starting formatting...\n";
     $formatStartTime = microtime(true);
 
     $request = new DumpRenderRequest($largeArray, 'cli');
@@ -165,18 +166,18 @@ function runPerformanceExample(): void
     $formatEndTime = microtime(true);
     $endMemory = memory_get_usage(true);
 
-    echo "格式化完成！\n";
-    echo "格式化用时: " . number_format(($formatEndTime - $formatStartTime) * 1000, 2) . "ms\n";
-    echo "输出长度: " . number_format(strlen($output)) . " 字符\n";
-    echo "总内存使用: " . formatBytes($endMemory - $startMemory) . "\n\n";
+    echo "Formatting completed!\n";
+    echo "Formatting time: " . number_format(($formatEndTime - $formatStartTime) * 1000, 2) . "ms\n";
+    echo "Output length: " . number_format(strlen($output)) . " characters\n";
+    echo "Total memory usage: " . formatBytes($endMemory - $startMemory) . "\n\n";
 
-    echo "前1000字符的输出预览:\n";
+    echo "Output preview (first 1000 characters):\n";
     echo substr($output, 0, 1000) . "...\n";
 }
 
 function runConfigurationExample(): void
 {
-    echo "\n⚙️  配置选项演示（包括新的缩进和颜色配置）...\n\n";
+    echo "\n⚙️  Configuration options demo (including new indent and color settings)...\n\n";
 
     $testData = [
         'level1' => [
@@ -197,7 +198,7 @@ function runConfigurationExample(): void
         ],
     ];
 
-    echo "1. 默认配置（4空格缩进）:\n";
+    echo "1. Default configuration (4-space indent):\n";
     $defaultConfig = new FormatterConfiguration();
     $formatter1 = PrettyFormatter::forChannel('cli', $defaultConfig);
     $renderer1 = new CliRenderer($formatter1);
@@ -205,7 +206,7 @@ function runConfigurationExample(): void
     echo $renderer1->render($request1);
     echo "\n";
 
-    echo "2. 2空格缩进配置:\n";
+    echo "2. 2-space indent configuration:\n";
     $smallIndentConfig = new FormatterConfiguration([
         'indentSize' => 2,
         'indentStyle' => 'spaces',
@@ -216,7 +217,7 @@ function runConfigurationExample(): void
     echo $renderer2->render($request2);
     echo "\n";
 
-    echo "3. Tab缩进配置:\n";
+    echo "3. Tab indent configuration:\n";
     $tabIndentConfig = new FormatterConfiguration([
         'indentStyle' => 'tabs',
     ]);
@@ -226,7 +227,7 @@ function runConfigurationExample(): void
     echo $renderer3->render($request3);
     echo "\n";
 
-    echo "4. 限制深度和项目数:\n";
+    echo "4. Limit depth and item count:\n";
     $limitedConfig = new FormatterConfiguration([
         'maxDepth' => 2,
         'maxItems' => 5,
@@ -238,14 +239,14 @@ function runConfigurationExample(): void
     echo $renderer4->render($request4);
     echo "\n";
 
-    echo "5. 主题切换:\n";
+    echo "5. Theme switching:\n";
     $themes = ['light', 'dark'];
     foreach ($themes as $theme) {
-        echo "主题: $theme\n";
+        echo "Theme: $theme\n";
         $themeConfig = new FormatterConfiguration(['theme' => $theme]);
         $formatter = PrettyFormatter::forChannel('cli', $themeConfig);
         $renderer = new CliRenderer($formatter);
-        $request = new DumpRenderRequest(['theme' => $theme, 'data' => '示例数据'], 'cli');
+        $request = new DumpRenderRequest(['theme' => $theme, 'data' => 'Sample data'], 'cli');
         echo $renderer->render($request);
         echo "\n";
     }
@@ -253,7 +254,7 @@ function runConfigurationExample(): void
 
 function runRedactionExample(): void
 {
-    echo "\n🔒 敏感信息脱敏演示...\n\n";
+    echo "\n🔒 Sensitive data redaction demo...\n\n";
 
     $configuration = new FormatterConfiguration([
         'redactionRules' => [
@@ -291,21 +292,21 @@ function runRedactionExample(): void
         ],
     ];
 
-    echo "原始数据（包含敏感信息）:\n";
+    echo "Raw data (contains sensitive information):\n";
     $request = new DumpRenderRequest($sensitiveData, 'cli');
     echo $renderer->render($request);
     echo "\n";
 
-    echo "注意：敏感信息已被自动脱敏处理！\n";
-    echo "- 密码被替换为 ***\n";
-    echo "- API密钥被替换为 ***\n";
-    echo "- 邮箱域名被替换为 ***.com\n";
-    echo "- 手机号被替换为 ***-***-****\n";
+    echo "Note: Sensitive information has been automatically redacted!\n";
+    echo "- Passwords replaced with ***\n";
+    echo "- API keys replaced with ***\n";
+    echo "- Email domains replaced with ***.com\n";
+    echo "- Phone numbers replaced with ***-***-****\n";
 }
 
 function runThemeExample(): void
 {
-    echo "\n🎨 主题切换演示...\n\n";
+    echo "\n🎨 Theme switching demo...\n\n";
 
     $sampleData = [
         'theme' => 'demonstration',
@@ -319,8 +320,8 @@ function runThemeExample(): void
     ];
 
     $themes = [
-        'light' => '亮色主题 - 适合明亮环境',
-        'dark' => '暗色主题 - 适合昏暗环境',
+        'light' => 'Light theme - suitable for bright environments',
+        'dark' => 'Dark theme - suitable for dim environments',
     ];
 
     foreach ($themes as $theme => $description) {
@@ -371,16 +372,16 @@ function main(): void
                 runThemeExample();
                 break;
             case 7:
-                echo "\n👋 感谢使用 PrettyDumper 示例运行器！\n";
-                echo "查看更多示例请访问: examples/README.md\n\n";
+                echo "\n👋 Thank you for using PrettyDumper Example Runner!\n";
+                echo "For more examples, visit: examples/README.md\n\n";
                 exit(0);
             default:
-                echo "\n❌ 无效的选择，请输入 1-7\n\n";
+                echo "\n❌ Invalid choice, please enter 1-7\n\n";
                 continue 2;
         }
 
         echo "\n" . str_repeat("-", 60) . "\n";
-        $input = readline("按回车继续，或输入 'q' 退出: ");
+        $input = readline("Press Enter to continue, or type 'q' to exit: ");
         $continue = $input !== false ? trim($input) : '';
         if (strtolower($continue) === 'q') {
             break;
@@ -388,31 +389,31 @@ function main(): void
         echo "\n";
     }
 
-    echo "\n👋 感谢使用 PrettyDumper 示例运行器！\n";
-    echo "查看更多示例请访问: examples/README.md\n\n";
+    echo "\n👋 Thank you for using PrettyDumper Example Runner!\n";
+    echo "For more examples, visit: examples/README.md\n\n";
 }
 
 // 运行主程序
 if (php_sapi_name() === 'cli') {
     main();
 } else {
-    echo "此脚本需要在命令行中运行。\n";
-    echo "使用方法: php examples/run-examples.php\n";
+    echo "This script must be run from the command line.\n";
+    echo "Usage: php examples/run-examples.php\n";
 }
 
 /**
- * 使用说明：
+ * Usage instructions:
  *
- * 1. 确保已经安装依赖：
+ * 1. Make sure dependencies are installed:
  *    composer install
  *
- * 2. 运行示例：
+ * 2. Run examples:
  *    php examples/run-examples.php
  *
- * 3. 按照提示选择要运行的示例
+ * 3. Follow prompts to select an example to run
  *
- * 4. 查看其他示例：
- *    - examples/cli/ - 命令行示例
- *    - examples/web/ - Web界面示例
- *    - examples/frameworks/ - 框架集成示例
+ * 4. View other examples:
+ *    - examples/cli/ - Command line examples
+ *    - examples/web/ - Web interface examples
+ *    - examples/frameworks/ - Framework integration examples
  */

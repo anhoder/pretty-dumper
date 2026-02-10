@@ -3,10 +3,10 @@
 declare(strict_types=1);
 
 /**
- * PrettyDumper Web 基本使用示例
+ * PrettyDumper Web Basic Usage Example
  *
- * 运行: php -S localhost:8080 examples/web/basic-web.php
- * 然后访问: http://localhost:8080
+ * Run: php -S localhost:8080 examples/web/basic-web.php
+ * Then visit: http://localhost:8080
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
@@ -16,16 +16,16 @@ use Anhoder\PrettyDumper\Formatter\PrettyFormatter;
 use Anhoder\PrettyDumper\Formatter\FormatterConfiguration;
 use Anhoder\PrettyDumper\Renderer\WebRenderer;
 
-// 配置 Web 渲染器 - 包含新的颜色和缩进配置
+// Configure Web renderer - includes new color and indent settings
 $configuration = new FormatterConfiguration([
     'maxDepth' => 5,
     'showContext' => true,
-    'indentSize' => 2,        // 2空格缩进，更紧凑
-    'indentStyle' => 'spaces', // 使用空格缩进
+    'indentSize' => 2,        // 2-space indent, more compact
+    'indentStyle' => 'spaces', // Use space indentation
 ]);
 
 $formatter = PrettyFormatter::forChannel('web', $configuration);
-$themes = \PrettyDumper\Support\ThemeRegistry::withDefaults();
+$themes = \Anhoder\PrettyDumper\Support\ThemeRegistry::withDefaults();
 $renderer = new WebRenderer($formatter, $themes);
 
 $themeParam = $_GET['theme'] ?? 'auto';
@@ -45,17 +45,17 @@ if ($tableMetaParamRaw !== null) {
     }
 }
 
-// 路由处理
+// Route handling
 $path = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($path, PHP_URL_PATH);
 
 ?>
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PrettyDumper Web 示例</title>
+    <title>PrettyDumper Web Example</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -124,7 +124,7 @@ $path = parse_url($path, PHP_URL_PATH);
 </head>
 <body>
     <div class="container">
-        <h1>PrettyDumper Web 示例</h1>
+        <h1>PrettyDumper Web Example</h1>
 
         <div class="nav">
             <?php
@@ -132,10 +132,10 @@ $path = parse_url($path, PHP_URL_PATH);
             $tableMetaQuery = $tableMetaParamRaw !== null ? '&table_meta=' . ($tableMetaEnabled ? '1' : '0') : '';
             $extraQuery = $themeQuery . $tableMetaQuery;
             ?>
-            <a href="?demo=simple<?php echo $extraQuery; ?>">简单数组</a>
-            <a href="?demo=nested<?php echo $extraQuery; ?>">嵌套数据</a>
-            <a href="?demo=object<?php echo $extraQuery; ?>">对象示例</a>
-            <a href="?demo=exception<?php echo $extraQuery; ?>">异常处理</a>
+            <a href="?demo=simple<?php echo $extraQuery; ?>">Simple Array</a>
+            <a href="?demo=nested<?php echo $extraQuery; ?>">Nested Data</a>
+            <a href="?demo=object<?php echo $extraQuery; ?>">Object Example</a>
+            <a href="?demo=exception<?php echo $extraQuery; ?>">Exception Handling</a>
         </div>
 
         <?php
@@ -152,18 +152,17 @@ $path = parse_url($path, PHP_URL_PATH);
         $themeSuffix = $themeParam !== 'auto' ? '&theme=' . urlencode($themeParam) : '';
         $currentDemo = $demo;
         $toggleMetaSuffix = '&table_meta=' . ($tableMetaEnabled ? '0' : '1');
-        $toggleMetaLabel = $tableMetaEnabled ? '关闭变量名展示' : '开启变量名展示';
         ?>
 
         <p class="options">
-            子级变量名展示：<strong><?php echo $tableMetaEnabled ? '开启' : '关闭'; ?></strong>
-            <a href="?demo=<?php echo urlencode($currentDemo) . $themeSuffix . $toggleMetaSuffix; ?>"><?php echo $toggleMetaLabel; ?></a>
+            Child variable names display: <strong><?php echo $tableMetaEnabled ? 'Enabled' : 'Disabled'; ?></strong>
+            <a href="?demo=<?php echo urlencode($currentDemo) . $themeSuffix . $toggleMetaSuffix; ?>"><?php echo $tableMetaEnabled ? 'Disable' : 'Enable'; ?></a>
         </p>
 
         <?php
         switch ($demo) {
             case 'simple':
-                echo '<h2>简单数组示例</h2>';
+                echo '<h2>Simple Array Example</h2>';
                 echo '<div class="code-example">$data = ["name" => "John", "age" => 30, "city" => "New York"];</div>';
 
                 $simpleData = [
@@ -177,8 +176,8 @@ $path = parse_url($path, PHP_URL_PATH);
                 break;
 
             case 'nested':
-                echo '<h2>嵌套数据结构</h2>';
-                echo '<div class="code-example">包含多层嵌套的数组和对象</div>';
+                echo '<h2>Nested Data Structure</h2>';
+                echo '<div class="code-example">Array and object with multiple nesting levels</div>';
 
                 $nestedData = [
                     'company' => [
@@ -200,8 +199,8 @@ $path = parse_url($path, PHP_URL_PATH);
                 break;
 
             case 'object':
-                echo '<h2>对象和类实例</h2>';
-                echo '<div class="code-example">自定义类和对象实例</div>';
+                echo '<h2>Objects and Class Instances</h2>';
+                echo '<div class="code-example">Custom classes and object instances</div>';
 
                 class Product {
                     public function __construct(
@@ -224,11 +223,11 @@ $path = parse_url($path, PHP_URL_PATH);
                 break;
 
             case 'exception':
-                echo '<h2>异常信息展示</h2>';
-                echo '<div class="code-example">异常链和上下文信息</div>';
+                echo '<h2>Exception Information Display</h2>';
+                echo '<div class="code-example">Exception chain and context information</div>';
 
                 try {
-                    throw new RuntimeException('数据库查询失败', 500);
+                    throw new RuntimeException('Database query failed', 500);
                 } catch (Exception $e) {
                     $exceptionData = [
                         'error' => $e,
@@ -250,15 +249,15 @@ $path = parse_url($path, PHP_URL_PATH);
                 break;
 
             default:
-                echo '<h2>欢迎使用 PrettyDumper Web 示例</h2>';
-                echo '<p>点击上面的链接查看不同的示例。</p>';
-                echo '<p><strong>特性包括：</strong></p>';
+                echo '<h2>Welcome to PrettyDumper Web Example</h2>';
+                echo '<p>Click the links above to view different examples.</p>';
+                echo '<p><strong>Features include:</strong></p>';
                 echo '<ul>';
-                echo '<li>响应式设计</li>';
-                echo '<li>主题切换（亮色/暗色）</li>';
-                echo '<li>可折叠的嵌套结构</li>';
-                echo '<li>类型信息和元数据</li>';
-                echo '<li>截断和性能优化</li>';
+                echo '<li>Responsive design</li>';
+                echo '<li>Theme switching (light/dark)</li>';
+                echo '<li>Collapsible nested structures</li>';
+                echo '<li>Type information and metadata</li>';
+                echo '<li>Truncation and performance optimization</li>';
                 echo '</ul>';
         }
         ?>
