@@ -699,13 +699,19 @@ final class WebRenderer
             '__MUTED__' => 'var(--pd-muted)',
         ]);
 
-        $autoVariables = $this->themeVariablesFor($theme === 'dark' ? 'dark' : 'light');
         $lightVariables = $this->themeVariablesFor('light');
         $darkVariables = $this->themeVariablesFor('dark');
 
+        // auto 模式：默认使用浅色主题
         $css .= sprintf(
             "\n.pretty-dump[data-theme=\"auto\"], .pretty-dump[data-theme=\"auto\"] .pretty-dump-table-panel {%s}\n",
-            $this->formatThemeVariables($autoVariables),
+            $this->formatThemeVariables($lightVariables),
+        );
+
+        // auto 模式：当系统为深色模式时使用深色主题
+        $css .= sprintf(
+            "@media (prefers-color-scheme: dark) {\n  .pretty-dump[data-theme=\"auto\"], .pretty-dump[data-theme=\"auto\"] .pretty-dump-table-panel {%s}\n}\n",
+            $this->formatThemeVariables($darkVariables),
         );
 
         $css .= sprintf(
@@ -717,6 +723,28 @@ final class WebRenderer
             ".pretty-dump[data-theme=\"dark\"], .pretty-dump[data-theme=\"dark\"] .pretty-dump-table-panel {%s}\n",
             $this->formatThemeVariables($darkVariables),
         );
+
+        // 全局页面背景色：默认浅色
+        $css .= "\nbody:has(.pretty-dump[data-theme=\"auto\"]), body:has(.pretty-dump[data-theme=\"light\"]) {\n";
+        $css .= "  background-color: #ffffff;\n";
+        $css .= "  color: #1f2933;\n";
+        $css .= "  transition: background-color 0.2s ease, color 0.2s ease;\n";
+        $css .= "}\n";
+
+        // 全局页面背景色：深色模式
+        $css .= "\nbody:has(.pretty-dump[data-theme=\"dark\"]) {\n";
+        $css .= "  background-color: #1f2933;\n";
+        $css .= "  color: #f9fafb;\n";
+        $css .= "  transition: background-color 0.2s ease, color 0.2s ease;\n";
+        $css .= "}\n";
+
+        // auto 模式下跟随系统主题
+        $css .= "\n@media (prefers-color-scheme: dark) {\n";
+        $css .= "  body:has(.pretty-dump[data-theme=\"auto\"]) {\n";
+        $css .= "    background-color: #1f2933;\n";
+        $css .= "    color: #f9fafb;\n";
+        $css .= "  }\n";
+        $css .= "}\n";
 
         return $css;
     }
@@ -1302,7 +1330,7 @@ final class WebRenderer
         $formatted = [];
         foreach ($args as $arg) {
             if (is_string($arg)) {
-                $formatted[] = sprintf('\'%s\'', htmlspecialchars($arg, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+                $formatted[] = sprintf('\'%s\'', $arg);
             } elseif (is_numeric($arg)) {
                 $formatted[] = (string)$arg;
             } elseif (is_bool($arg)) {
@@ -1357,10 +1385,10 @@ final class WebRenderer
                     '<div class="stack-location">%s:%s</div>' .
                     '</div>',
                     $index,
-                    htmlspecialchars($fullFunction, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    $fullFunction,
                     $argsStr,
-                    htmlspecialchars($fileName, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-                    htmlspecialchars((string) $lineNumber, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    $fileName,
+                    (string) $lineNumber,
                 );
             }
 
@@ -1415,16 +1443,16 @@ final class WebRenderer
         foreach ($summaryItems as $item) {
             $summaryParts[] = sprintf(
                 '<span class="exception-summary-item"><span class="exception-summary-label">%s</span><span class="exception-summary-value">%s</span></span>',
-                $this->escape($item['label']),
-                $this->escape($item['value'])
+                $item['label'],
+                $item['value']
             );
         }
 
         if ($summaryParts === []) {
             $summaryHtml = sprintf(
                 '<span class="exception-summary-item"><span class="exception-summary-label">%s</span><span class="exception-summary-value">%s</span></span>',
-                $this->escape('Exception'),
-                $this->escape('Details')
+                'Exception',
+                'Details'
             );
         } else {
             $summaryHtml = implode('', $summaryParts);
@@ -1434,8 +1462,8 @@ final class WebRenderer
         foreach ($infoItems as $item) {
             $infoRows .= sprintf(
                 '<tr><th>%s</th><td>%s</td></tr>',
-                $this->escape($item['label']),
-                $this->escape($item['value'])
+                $item['label'],
+                $item['value']
             );
         }
 
@@ -2184,6 +2212,36 @@ final class WebRenderer
   });
 
   rootThemeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+  // 监听系统主题变化
+  if(window.matchMedia){
+    var systemThemeMediaQuery=window.matchMedia('(prefers-color-scheme: dark)');
+    var handleSystemThemeChange=function(event){
+      var prefersDark=event.matches;
+      var targetTheme=prefersDark?'dark':'light';
+
+      dumps.forEach(function(dump){
+        var preference=dump.getAttribute('data-theme-preference')||'auto';
+        if(preference!=='auto'){return;}
+
+        var rootTheme=document.documentElement.getAttribute('data-theme');
+        if(rootTheme==='dark'||rootTheme==='light'){return;}
+
+        dump.setAttribute('data-theme',targetTheme);
+        if(dump._tablePanel){
+          dump._tablePanel.setAttribute('data-theme',targetTheme);
+        }
+        updateThemeToggle(dump);
+      });
+    };
+
+    // 使用 addEventListener 如果可用，否则使用 addListener
+    if(systemThemeMediaQuery.addEventListener){
+      systemThemeMediaQuery.addEventListener('change',handleSystemThemeChange);
+    }else if(systemThemeMediaQuery.addListener){
+      systemThemeMediaQuery.addListener(handleSystemThemeChange);
+    }
+  }
 
   function buildTabularDataset(raw){
     var parsed;
