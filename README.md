@@ -365,12 +365,6 @@ Issues and Pull Requests are welcome!
 
 MIT License
 
-## Related Links
-
-- [Quick Start Guide](docs/quickstart.md)
-- [API Documentation](docs/api.md)
-- [Changelog](CHANGELOG.md)
-
 ---
 
 <div align="center">
