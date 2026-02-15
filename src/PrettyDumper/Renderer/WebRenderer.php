@@ -672,6 +672,31 @@ final class WebRenderer
                 color: __NULL__;
                 font-style: italic;
             }
+
+            .pretty-dump .sql-content {
+                margin: 0.4rem 0 0.4rem 1rem;
+                padding: 0.5rem;
+                background-color: __PANEL_BG__;
+                border-radius: 4px;
+                font-family: inherit;
+                font-size: inherit;
+                line-height: inherit;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .pretty-dump .sql-keyword {
+                color: __UNKNOWN__;
+                font-weight: 600;
+            }
+
+            .pretty-dump .sql-string {
+                color: __STRING__;
+            }
+
+            .pretty-dump .sql-number {
+                color: __NUMBER__;
+            }
         CSS;
 
         $css = strtr($css, [
@@ -792,6 +817,15 @@ final class WebRenderer
             '--pd-stack-index' => $stackIndexColor,
             '--pd-stack-location' => $stackLocationColor,
             '--pd-muted' => $mutedColor,
+            // Diff colors
+            '--pd-diff-added-bg' => $colors['diff_added_bg'],
+            '--pd-diff-added-text' => $colors['diff_added_text'],
+            '--pd-diff-removed-bg' => $colors['diff_removed_bg'],
+            '--pd-diff-removed-text' => $colors['diff_removed_text'],
+            '--pd-diff-modified-bg' => $colors['diff_modified_bg'],
+            '--pd-diff-modified-text' => $colors['diff_modified_text'],
+            '--pd-diff-unchanged-text' => $colors['diff_unchanged_text'],
+            '--pd-diff-key-color' => $colors['diff_key_color'],
         ];
     }
 
@@ -830,6 +864,15 @@ final class WebRenderer
                 'key' => '#059669',        // 绿色 - 键名
                 'performance' => '#6b7280', // 灰色 - 性能信息
                 'exception' => '#dc2626',  // 红色 - 异常
+                // Diff colors - light theme
+                'diff_added_bg' => '#d1fae5',       // 浅绿色背景
+                'diff_added_text' => '#065f46',     // 深绿色文字
+                'diff_removed_bg' => '#fee2e2',     // 浅红色背景
+                'diff_removed_text' => '#991b1b',   // 深红色文字
+                'diff_modified_bg' => '#fef3c7',    // 浅黄色背景
+                'diff_modified_text' => '#92400e',  // 深黄色/棕色文字
+                'diff_unchanged_text' => '#9ca3af', // 灰色
+                'diff_key_color' => '#0891b2',      // 青色键名
             ];
         }
 
@@ -846,6 +889,15 @@ final class WebRenderer
             'key' => '#34d399',        // 浅绿色 - 键名
             'performance' => '#9ca3af', // 浅灰色 - 性能信息
             'exception' => '#f87171',  // 浅红色 - 异常
+            // Diff colors - dark theme
+            'diff_added_bg' => '#064e3b',       // 深绿色背景
+            'diff_added_text' => '#34d399',     // 浅绿色文字
+            'diff_removed_bg' => '#7f1d1d',     // 深红色背景
+            'diff_removed_text' => '#f87171',   // 浅红色文字
+            'diff_modified_bg' => '#78350f',    // 深黄色/棕色背景
+            'diff_modified_text' => '#fbbf24',  // 浅黄色文字
+            'diff_unchanged_text' => '#6b7280', // 灰色
+            'diff_key_color' => '#22d3ee',      // 浅青色键名
         ];
     }
 
@@ -882,7 +934,10 @@ final class WebRenderer
         if (array_key_exists('jsonValue', $metadata)) {
             $jsonAttribute = $this->encodeJsonAttribute($metadata['jsonValue']);
             if ($jsonAttribute !== null) {
-                $attributes['data-json'] = $jsonAttribute;
+                // Don't set data-json for SQL type to avoid double-escaping
+                if ($segment->type() !== 'sql') {
+                    $attributes['data-json'] = $jsonAttribute;
+                }
             }
         }
 
@@ -900,6 +955,10 @@ final class WebRenderer
 
         if ($segment->type() === 'json') {
             return $this->renderJsonNode($segment, $depth, $attrString, $preferJavascript);
+        }
+
+        if ($segment->type() === 'sql') {
+            return $this->renderSqlNode($segment, $depth, $attrString, $preferJavascript);
         }
 
         $children = $segment->children();
@@ -1626,6 +1685,87 @@ final class WebRenderer
     }
 
     /**
+     * Render a SQL node with syntax highlighting
+     */
+    private function renderSqlNode(RenderedSegment $segment, int $depth, string $attrString, bool $preferJavascript): string
+    {
+        $summaryClass = $preferJavascript ? 'node-summary' : 'node-summary keyboard-focusable';
+        $headerContent = $this->escape($segment->content());
+
+        $children = $segment->children();
+        $sqlBodyContent = '';
+
+        foreach ($children as $child) {
+            if ($child->type() === 'sql-body') {
+                $sqlContent = $child->content();
+                if ($sqlContent !== '') {
+                    $highlightedSql = $this->highlightSqlForWeb($sqlContent);
+                    $sqlBodyContent = sprintf('<pre class="sql-content">%s</pre>', $highlightedSql);
+                }
+            }
+        }
+
+        return sprintf(
+            '<details %s><summary class="%s"><span class="node-summary-label">%s</span>%s</summary><div class="node-children">%s</div></details>',
+            $attrString,
+            $summaryClass,
+            $headerContent,
+            $this->renderNodeActions($segment, $depth),
+            $sqlBodyContent
+        );
+    }
+
+    /**
+     * Highlight SQL syntax for HTML output
+     */
+    private function highlightSqlForWeb(string $sql): string
+    {
+        // Escape HTML first
+        $sql = htmlspecialchars($sql, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        // SQL keywords to highlight
+        $keywords = [
+            'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'CROSS',
+            'ON', 'AND', 'OR', 'NOT', 'IN', 'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL',
+            'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'AS',
+            'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE',
+            'CREATE', 'TABLE', 'ALTER', 'DROP', 'INDEX', 'VIEW',
+            'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN',
+            'UNION', 'ALL', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+            'WITH', 'RECURSIVE', 'ASC', 'DESC',
+        ];
+
+        $result = $sql;
+
+        // Highlight keywords (case-insensitive)
+        foreach ($keywords as $keyword) {
+            $escapedKeyword = htmlspecialchars($keyword, ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $result = preg_replace(
+                '/\b' . preg_quote($escapedKeyword, '/') . '\b/i',
+                '<span class="sql-keyword">' . $escapedKeyword . '</span>',
+                $result
+            );
+        }
+
+        // Highlight strings (after HTML escape)
+        // Match single quotes directly since ENT_NOQUOTES doesn't escape them
+        $result = preg_replace(
+            "/'([^']*?)'/s",
+            '<span class="sql-string">\'$1\'</span>',
+            $result
+        );
+
+        // Highlight numbers (after HTML escape)
+        $result = preg_replace(
+            '/\b(\d+)\b/',
+            '<span class="sql-number">$1</span>',
+            $result
+        );
+
+        return $result;
+    }
+
+    /**
      * @param array<int|string, mixed> $options
      * @return array<string, mixed>
      */
@@ -1807,7 +1947,7 @@ final class WebRenderer
     ensureThemeObserver(dump);
 
     if(shouldBroadcast){
-      dumps.forEach(function(other){
+      document.querySelectorAll('.pretty-dump').forEach(function(other){
         if(other===dump){return;}
         setExplicitTheme(other,theme,{persist:false,broadcast:false});
       });
@@ -2200,7 +2340,7 @@ final class WebRenderer
   var rootThemeObserver=new MutationObserver(function(){
     var theme=document.documentElement.getAttribute('data-theme');
     if(!theme){return;}
-    dumps.forEach(function(dump){
+    document.querySelectorAll('.pretty-dump').forEach(function(dump){
       var preference=dump.getAttribute('data-theme-preference')||'auto';
       if(preference!=='auto'){return;}
       dump.setAttribute('data-theme',theme);
@@ -2220,7 +2360,7 @@ final class WebRenderer
       var prefersDark=event.matches;
       var targetTheme=prefersDark?'dark':'light';
 
-      dumps.forEach(function(dump){
+      document.querySelectorAll('.pretty-dump').forEach(function(dump){
         var preference=dump.getAttribute('data-theme-preference')||'auto';
         if(preference!=='auto'){return;}
 

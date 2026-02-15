@@ -70,7 +70,7 @@ class SqlTransformer
                          'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM'];
 
         foreach ($majorKeywords as $keyword) {
-            $sql = preg_replace('/\b' . preg_quote($keyword, '/') . '\b/i', "\n" . strtoupper($keyword), $sql);
+            $sql = preg_replace('/\b' . preg_quote($keyword, '/') . '\b/i', PHP_EOL . strtoupper($keyword), $sql);
         }
 
         // Add line breaks after commas in SELECT
@@ -181,13 +181,17 @@ class SqlTransformer
             'type' => 'sql',
             'original' => $sql,
             'bindings' => $bindings,
+            'collapsible' => true,
         ];
 
         if ($explain !== null) {
             $metadata['explain'] = $explain;
         }
 
-        $segment = new RenderedSegment('sql', $formatted, $metadata);
+        $segment = new RenderedSegment('sql', 'SQL Query', $metadata);
+
+        // Add formatted SQL body
+        $segment->addChild(RenderedSegment::leaf('sql-body', $formatted));
 
         // Add explain plan as child if available
         if ($explain !== null) {
@@ -292,9 +296,7 @@ class SqlTransformer
             $sql
         );
 
-        // Convert line breaks to <br>
-        $sql = nl2br($sql);
-
+        // Keep line breaks as \n for proper display in <pre> tags
         return $sql;
     }
 

@@ -182,7 +182,7 @@ class DiffRenderer
         $keyDisplay = is_numeric($key) ? "[{$key}]" : htmlspecialchars($key);
 
         if (isset($diff['children'])) {
-            $header = $indent . "<span style='color: #0088cc; font-weight: bold;'>{$keyDisplay}:</span>";
+            $header = $indent . "<span style='color: var(--pd-array, #2563eb); font-weight: bold;'>{$keyDisplay}:</span>";
             $children = $this->renderWeb($diff, $depth + 1, $fullKey);
             return $header . "\n" . $children;
         }
@@ -197,26 +197,26 @@ class DiffRenderer
     {
         $indent = str_repeat('&nbsp;&nbsp;', $depth);
         $type = $diff['type'];
-        $keyPart = $key ? "<span style='color: #0088cc;'>{$key}: </span>" : '';
+        $keyPart = $key ? "<span style='color: var(--pd-array, #2563eb);'>{$key}: </span>" : '';
 
         switch ($type) {
             case DiffTransformer::DIFF_ADDED:
                 $value = htmlspecialchars($this->formatValue($diff['new']));
                 return $indent .
-                       "<span style='background: #e6ffed; color: #22863a; padding: 2px 4px; border-radius: 3px;'>" .
+                       "<span style='background: var(--pd-diff-added-bg, #d1fae5); color: var(--pd-diff-added-text, #065f46); padding: 2px 4px; border-radius: 3px;'>" .
                        "+ {$keyPart}{$value}</span>";
 
             case DiffTransformer::DIFF_REMOVED:
                 $value = htmlspecialchars($this->formatValue($diff['old']));
                 return $indent .
-                       "<span style='background: #ffeef0; color: #cb2431; padding: 2px 4px; border-radius: 3px;'>" .
+                       "<span style='background: var(--pd-diff-removed-bg, #fee2e2); color: var(--pd-diff-removed-text, #991b1b); padding: 2px 4px; border-radius: 3px;'>" .
                        "- {$keyPart}{$value}</span>";
 
             case DiffTransformer::DIFF_MODIFIED:
                 $oldValue = htmlspecialchars($this->formatValue($diff['old']));
                 $newValue = htmlspecialchars($this->formatValue($diff['new']));
                 return $indent .
-                       "<span style='background: #fff8c5; color: #735c0f; padding: 2px 4px; border-radius: 3px;'>" .
+                       "<span style='background: var(--pd-diff-modified-bg, #fef3c7); color: var(--pd-diff-modified-text, #92400e); padding: 2px 4px; border-radius: 3px;'>" .
                        "~ {$keyPart}" .
                        "<span style='text-decoration: line-through;'>{$oldValue}</span> → " .
                        "<span style='font-weight: bold;'>{$newValue}</span>" .
@@ -225,7 +225,7 @@ class DiffRenderer
             case DiffTransformer::DIFF_UNCHANGED:
                 $value = htmlspecialchars($this->formatValue($diff['new']));
                 return $indent .
-                       "<span style='color: #999;'>&nbsp;&nbsp;{$keyPart}{$value}</span>";
+                       "<span style='color: var(--pd-diff-unchanged-text, #9ca3af);'>&nbsp;&nbsp;{$keyPart}{$value}</span>";
 
             default:
                 return '';

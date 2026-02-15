@@ -90,6 +90,7 @@ final class CliRenderer
             'null' => $this->renderNullSegment($segment, $depth, $useColor),
             'unknown' => $this->renderUnknownSegment($segment, $depth, $useColor),
             'json' => $this->renderJsonSegment($segment, $depth, $useColor),
+            'sql' => $this->renderSqlSegment($segment, $depth, $useColor),
             'notice', 'circular' => $this->indent($depth) . $this->colorize($segment->content(), self::COLOR_NOTICE, $useColor),
             'exception' => $this->renderExceptionBlock($segment, $depth),
             'performance' => $this->indent($depth) . $this->colorize($segment->content(), self::COLOR_EXPRESSION, $useColor),
@@ -308,21 +309,54 @@ final class CliRenderer
         $lines = [];
         $indent = $this->indent($depth);
 
-        // Render the header line: "JSON Document"
+        // Render header line: "JSON Document"
         $headerLine = $indent . $this->colorize($segment->content(), self::COLOR_TYPE, $useColor);
         $headerLine .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
         $lines[] = $headerLine;
 
-        // Render the JSON body (formatted JSON content)
+        // Render JSON body (formatted JSON content)
         $children = $segment->children();
         foreach ($children as $child) {
             if ($child->type() === 'json-body') {
                 $jsonContent = $child->content();
                 if ($jsonContent !== '') {
-                    // Split the formatted JSON into lines and indent each line
+                    // Split formatted JSON into lines and indent each line
                     $jsonLines = explode("\n", $jsonContent);
                     foreach ($jsonLines as $jsonLine) {
                         $highlightedLine = $this->highlightJsonForCli($jsonLine, $useColor);
+                        $lines[] = $indent . '  ' . $highlightedLine;
+                    }
+                }
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Render a SQL segment with syntax highlighting
+     */
+    private function renderSqlSegment(RenderedSegment $segment, int $depth, bool $useColor): string
+    {
+        $lines = [];
+        $indent = $this->indent($depth);
+
+        // Render header line: "SQL Query"
+        $headerLine = $indent . $this->colorize($segment->content(), self::COLOR_TYPE, $useColor);
+        $headerLine .= $this->renderExpressionSuffix($this->expressionMeta($segment), $useColor);
+        $lines[] = $headerLine;
+
+        // Render SQL body (formatted SQL content)
+        $children = $segment->children();
+        foreach ($children as $child) {
+            if ($child->type() === 'sql-body') {
+                $sqlContent = $child->content();
+                if ($sqlContent !== '') {
+                    // Split formatted SQL into lines and indent each line
+                    $sqlLines = explode("\n", $sqlContent);
+                    foreach ($sqlLines as $sqlLine) {
+                        // Highlight SQL syntax
+                        $highlightedLine = $this->highlightSqlForCli($sqlLine, $useColor);
                         $lines[] = $indent . '  ' . $highlightedLine;
                     }
                 }
@@ -433,6 +467,109 @@ final class CliRenderer
             }
 
             // Everything else (brackets, braces, colons, commas, spaces)
+            $result .= $char;
+            $i++;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Highlight SQL syntax for CLI output
+     */
+    private function highlightSqlForCli(string $sqlLine, bool $useColor): string
+    {
+        if (!$useColor) {
+            return $sqlLine;
+        }
+
+        // SQL keywords to highlight
+        $keywords = [
+            'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'CROSS',
+            'ON', 'AND', 'OR', 'NOT', 'IN', 'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL',
+            'ORDER', 'BY', 'GROUP', 'HAVING', 'LIMIT', 'OFFSET', 'AS',
+            'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE',
+            'CREATE', 'TABLE', 'ALTER', 'DROP', 'INDEX', 'VIEW',
+            'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MAX', 'MIN',
+            'UNION', 'ALL', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END',
+            'WITH', 'RECURSIVE', 'ASC', 'DESC',
+        ];
+
+        $keywordColor = "\033[1;34m";  // Blue
+        $stringColor = "\033[0;32m";   // Green
+        $numberColor = "\033[0;36m";   // Cyan
+        $reset = "\033[0m";
+
+        $result = '';
+        $len = strlen($sqlLine);
+        $i = 0;
+
+        while ($i < $len) {
+            $char = $sqlLine[$i];
+
+            // Handle strings
+            if ($char === "'") {
+                $stringStart = $i;
+                $i++; // Skip opening quote
+
+                // Find closing quote, handling escaped quotes
+                while ($i < $len && !($sqlLine[$i] === "'" && $sqlLine[$i - 1] !== '\\')) {
+                    $i++;
+                }
+
+                if ($i < $len) {
+                    $i++; // Include closing quote
+                }
+
+                $string = substr($sqlLine, $stringStart, $i - $stringStart);
+                $result .= $this->colorize($string, $stringColor, true);
+                continue;
+            }
+
+            // Handle numbers
+            if (($char >= '0' && $char <= '9') || ($char === '-' && $i + 1 < $len && $sqlLine[$i + 1] >= '0' && $sqlLine[$i + 1] <= '9')) {
+                $numberStart = $i;
+
+                if ($char === '-') {
+                    $i++;
+                }
+
+                while ($i < $len && $sqlLine[$i] >= '0' && $sqlLine[$i] <= '9') {
+                    $i++;
+                }
+
+                if ($i < $len && $sqlLine[$i] === '.') {
+                    $i++;
+                    while ($i < $len && $sqlLine[$i] >= '0' && $sqlLine[$i] <= '9') {
+                        $i++;
+                    }
+                }
+
+                $number = substr($sqlLine, $numberStart, $i - $numberStart);
+                $result .= $this->colorize($number, $numberColor, true);
+                continue;
+            }
+
+            // Handle keywords (case-insensitive)
+            if (ctype_alpha($char)) {
+                $wordStart = $i;
+                while ($i < $len && ctype_alpha($sqlLine[$i])) {
+                    $i++;
+                }
+
+                $word = substr($sqlLine, $wordStart, $i - $wordStart);
+
+                // Check if it's a keyword
+                $upperWord = strtoupper($word);
+                if (in_array($upperWord, $keywords, true)) {
+                    $result .= $this->colorize($upperWord, $keywordColor, true);
+                } else {
+                    $result .= $word;
+                }
+                continue;
+            }
+
+            // Everything else
             $result .= $char;
             $i++;
         }

@@ -329,16 +329,20 @@ if (!function_exists('pd_diff')) {
             }
             return $result;
         } else {
-            // Web output
-            $result = "<div style='background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 16px; margin: 8px 0; font-family: monospace;'>";
+            // Web output - use CSS variables with fallback values for theme support
+            // The diff container uses CSS variables that will be resolved from:
+            // 1. Parent .pretty-dump element (if exists) - allows theme switching
+            // 2. Or fallback values (if no parent) - ensures standalone rendering works
+
+            $result = "<div class=\"pretty-dump\" data-theme=\"auto\" style='background: var(--pd-panel-bg, #f8f9fa); border: 1px solid var(--pd-border, #dee2e6); border-radius: 4px; padding: 16px; margin: 8px 0; font-family: monospace;'>";
 
             // Header
-            $result .= "<div style='font-weight: bold; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #dee2e6;'>";
+            $result .= "<div style='font-weight: bold; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--pd-border, #dee2e6); color: var(--pd-text, #1f2933);'>";
             $result .= "Diff Summary: ";
-            $result .= "<span style='color: #22863a; background: #e6ffed; padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>+{$stats['added']}</span>";
-            $result .= "<span style='color: #cb2431; background: #ffeef0; padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>-{$stats['removed']}</span>";
-            $result .= "<span style='color: #735c0f; background: #fff8c5; padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>~{$stats['modified']}</span>";
-            $result .= "<span style='color: #999; background: #f6f8fa; padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>={$stats['unchanged']}</span>";
+            $result .= "<span style='color: var(--pd-diff-added-text, #065f46); background: var(--pd-diff-added-bg, #d1fae5); padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>+{$stats['added']}</span>";
+            $result .= "<span style='color: var(--pd-diff-removed-text, #991b1b); background: var(--pd-diff-removed-bg, #fee2e2); padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>-{$stats['removed']}</span>";
+            $result .= "<span style='color: var(--pd-diff-modified-text, #92400e); background: var(--pd-diff-modified-bg, #fef3c7); padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>~{$stats['modified']}</span>";
+            $result .= "<span style='color: var(--pd-diff-unchanged-text, #9ca3af); background: var(--pd-panel-bg, #f6f8fa); padding: 2px 6px; border-radius: 3px; margin: 0 4px;'>=</span>";
             $result .= "</div>";
 
             // Diff content

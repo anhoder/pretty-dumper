@@ -12,6 +12,7 @@ use Anhoder\PrettyDumper\Context\RedactionRule;
 use Anhoder\PrettyDumper\Formatter\Support\PerformanceMonitor;
 use Anhoder\PrettyDumper\Formatter\Transformers\ExceptionTransformer;
 use Anhoder\PrettyDumper\Formatter\Transformers\JsonTransformer;
+use Anhoder\PrettyDumper\Formatter\Transformers\SqlTransformer;
 use Anhoder\PrettyDumper\Support\ThemeRegistry;
 use Throwable;
 
@@ -20,6 +21,8 @@ final class PrettyFormatter
     private JsonTransformer $jsonTransformer;
 
     private ExceptionTransformer $exceptionTransformer;
+
+    private SqlTransformer $sqlTransformer;
 
     private ContextCollector $collector;
 
@@ -37,6 +40,7 @@ final class PrettyFormatter
     ) {
         $this->jsonTransformer = new JsonTransformer();
         $this->exceptionTransformer = new ExceptionTransformer();
+        $this->sqlTransformer = new SqlTransformer();
         $this->collector = $collector ?? new DefaultContextCollector();
         $this->themes = $registry ?? ThemeRegistry::withDefaults();
         $this->monitor = new PerformanceMonitor();
@@ -149,6 +153,16 @@ final class PrettyFormatter
             }
 
             return $segment->withMetadata('jsonValue', $decoded);
+        }
+
+        if (is_string($value) && $this->sqlTransformer->isSql($value)) {
+            $segment = $this->sqlTransformer->createSqlSegment($value);
+
+            if ($expression !== null) {
+                $segment = $segment->withMetadata('expression', $expression);
+            }
+
+            return $segment->withMetadata('jsonValue', $value);
         }
 
         if (is_array($value)) {

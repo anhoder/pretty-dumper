@@ -39,9 +39,14 @@ function displayMenu(): int
     echo "4. Configuration Options Demo\n";
     echo "5. Sensitive Data Redaction Demo\n";
     echo "6. Theme Switching Demo\n";
-    echo "7. Exit\n\n";
+    echo "7. SQL Auto-Detection Demo\n";
+    echo "8. JSON Detection Demo\n";
+    echo "9. Diff Comparison Demo\n";
+    echo "10. Conditional Dump Demo\n";
+    echo "11. Context Snapshot Demo\n";
+    echo "12. Exit\n\n";
 
-    $input = readline("Please enter option number (1-7): ");
+    $input = readline("Please enter option number (1-12): ");
     $choice = $input !== false ? trim($input) : '';
     return (int) $choice;
 }
@@ -335,6 +340,46 @@ function runThemeExample(): void
     }
 }
 
+function runSqlExample(): void
+{
+    echo "\n📋 Running SQL auto-detection example...\n\n";
+    echo "Starting external example file...\n";
+    passthru('php ' . __DIR__ . '/cli/sql-highlight.php');
+    echo "\n";
+}
+
+function runJsonExample(): void
+{
+    echo "\n📋 Running JSON detection example...\n\n";
+    echo "Starting external example file...\n";
+    passthru('php ' . __DIR__ . '/cli/json-detection.php');
+    echo "\n";
+}
+
+function runDiffExample(): void
+{
+    echo "\n📋 Running diff comparison example...\n\n";
+    echo "Starting external example file...\n";
+    passthru('php ' . __DIR__ . '/cli/diff-comparison.php');
+    echo "\n";
+}
+
+function runConditionalExample(): void
+{
+    echo "\n📋 Running conditional dump example...\n\n";
+    echo "Starting external example file...\n";
+    passthru('php ' . __DIR__ . '/cli/conditional-dump.php');
+    echo "\n";
+}
+
+function runContextExample(): void
+{
+    echo "\n📋 Running context snapshot example...\n\n";
+    echo "Starting external example file...\n";
+    passthru('php ' . __DIR__ . '/cli/context-snapshot.php');
+    echo "\n";
+}
+
 function formatBytes(int $bytes, int $precision = 2): string
 {
     $units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -372,11 +417,26 @@ function main(): void
                 runThemeExample();
                 break;
             case 7:
+                runSqlExample();
+                break;
+            case 8:
+                runJsonExample();
+                break;
+            case 9:
+                runDiffExample();
+                break;
+            case 10:
+                runConditionalExample();
+                break;
+            case 11:
+                runContextExample();
+                break;
+            case 12:
                 echo "\n👋 Thank you for using PrettyDumper Example Runner!\n";
                 echo "For more examples, visit: examples/README.md\n\n";
                 exit(0);
             default:
-                echo "\n❌ Invalid choice, please enter 1-7\n\n";
+                echo "\n❌ Invalid choice, please enter 1-12\n\n";
                 continue 2;
         }
 
@@ -416,4 +476,17 @@ if (php_sapi_name() === 'cli') {
  *    - examples/cli/ - Command line examples
  *    - examples/web/ - Web interface examples
  *    - examples/frameworks/ - Framework integration examples
+ *
+ * 5. Available examples:
+ *    - CLI Basic Usage
+ *    - Exception Handling
+ *    - Performance Test
+ *    - Configuration Options
+ *    - Sensitive Data Redaction
+ *    - Theme Switching
+ *    - SQL Auto-Detection (NEW!)
+ *    - JSON Detection (NEW!)
+ *    - Diff Comparison (NEW!)
+ *    - Conditional Dump (NEW!)
+ *    - Context Snapshot (NEW!)
  */

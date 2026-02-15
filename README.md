@@ -62,9 +62,10 @@ pretty_dump($variable, [
     'theme' => 'dark'
 ]);
 
-// JSON format output
+// JSON format output (auto-detects and formats JSON)
 dumpj($variable);
-ddj($variable);  // Dump and die
+pdj($variable);     // JSON format with more options
+ddj($variable);     // Dump and die with JSON format
 ```
 
 ### CLI Command Line
@@ -115,13 +116,15 @@ echo $renderer->render($value);
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `maxDepth` | int | CLI: 3<br>Web: 5 | Maximum depth for object expansion |
-| `maxItems` | int | CLI: 100<br>Web: 2000 | Maximum items to display in arrays/objects |
+| `maxDepth` | int | CLI: 6<br>Web: 10 | Maximum depth for object expansion |
+| `maxItems` | int | CLI: 500<br>Web: 5000 | Maximum items to display in arrays/objects |
 | `stringLengthLimit` | int | 500000 | String length limit (bytes) |
 | `theme` | string | 'auto' | Theme: auto/light/dark |
 | `redactionRules` | array | See below | Sensitive data redaction rules |
 | `indentStyle` | string | 'spaces' | Indentation style: spaces/tabs |
-| `indentSize` | int | 2 | Indentation size |
+| `indentSize` | int | CLI: 0<br>Web: 2 | Indentation size |
+| `autoDetectJson` | bool | false | Auto-detect and format JSON strings |
+| `showPerformanceMetrics` | bool | false | Show rendering time and statistics |
 
 ### CLI Command Options
 
@@ -172,6 +175,136 @@ $config = new FormatterConfiguration([
         'phoneNumber'
     ]
 ]);
+```
+
+### Auto-Detection Features
+
+Pretty Dumper automatically detects and formats special data types:
+
+#### SQL Auto-Detection ✨
+SQL queries are automatically detected and beautified:
+
+```php
+// Automatic detection - just dump the SQL string
+$sql = "SELECT u.id, u.name FROM users u WHERE u.status = 'active' ORDER BY u.created_at DESC";
+pd($sql);  // Automatically detected as SQL, formatted and highlighted!
+
+// Works with complex queries too
+$complexSql = "SELECT u.id, o.id FROM users u JOIN orders o ON u.id = o.user_id";
+pd($complexSql);
+```
+
+Supports:
+- SELECT, INSERT, UPDATE, DELETE queries
+- Complex JOIN statements
+- Aggregation with GROUP BY and HAVING
+- Common Table Expressions (CTE)
+- Syntax highlighting for keywords, strings, and numbers
+- Works in both CLI and Web environments
+
+#### JSON Auto-Detection
+JSON strings can be automatically detected and formatted:
+
+```php
+// Using dumpj() - auto-detects JSON
+$jsonString = '{"users":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}],"count":2}';
+dumpj($jsonString);
+
+// Or with manual option
+pd($jsonString, ['autoDetectJson' => true]);
+
+// With shorthand functions
+pdj($data);        // JSON format
+ddj($data);        // JSON format and die
+```
+
+Features:
+- Automatic JSON validation
+- Syntax highlighting (keys, strings, numbers, booleans)
+- Unicode and emoji support
+- Nested structure handling
+- Graceful fallback for invalid JSON
+
+### Diff Comparison ✨ NEW
+
+Compare two values and visualize differences:
+
+```php
+// Basic diff
+use Anhoder\PrettyDumper\Formatter\Transformers\DiffTransformer;
+
+$oldData = ['name' => 'John', 'age' => 30];
+$newData = ['name' => 'John', 'age' => 31, 'city' => 'NYC'];
+
+pd_diff($oldData, $newData);
+
+// Diff with auto-detected JSON
+$oldJson = '{"name":"Bob","age":25,"skills":["PHP"]}';
+$newJson = '{"name":"Bob","age":26,"skills":["PHP","JavaScript"]}';
+pd_diff($oldJson, $newJson);
+
+// Auto-diff with last value
+$value1 = ['count' => 10];
+pd_auto_diff($value1);    // Store first value
+
+$value2 = ['count' => 15];
+pd_auto_diff($value2);    // Compare with stored value
+
+// Diff and die
+pdd_diff($oldData, $newData);
+```
+
+Output marks:
+- 🟢 Added keys/values
+- 🔴 Removed keys/values
+- 🟡 Modified values
+- ⚪ Unchanged values
+
+### Conditional Dumping ✨ NEW
+
+Dump only when conditions are met:
+
+```php
+// pd_when - dump when condition is true
+$data = ['user' => 'Alice', 'status' => 'active'];
+pd_when($data, fn($d) => $d['status'] === 'active');
+
+// pd_when with boolean condition
+$error = ['code' => 500, 'message' => 'Server error'];
+pd_when($error, false);  // Won't dump
+
+// pd_assert - assertion-based dumping
+$response = ['status' => 200, 'data' => ['id' => 1]];
+pd_assert($response, fn($r) => $r['status'] === 200, 'HTTP status should be 200');
+
+// pd_assert with message
+$user = ['name' => 'Bob', 'age' => 25];
+pd_assert($user, fn($u) => $u['age'] >= 18, 'User must be an adult');
+
+// Die after assertion
+pdd_assert($config, fn($c) => $c['debug'] === true, 'Debug mode must be enabled');
+
+// Die when condition met
+pdd_when($criticalError, true);
+```
+
+### Dump History ✨ NEW
+
+Track and compare values across code execution:
+
+```php
+// Compare with last dumped value at this location
+$value = ['count' => 10];
+pd_auto_diff($value);  // First run - just dumps
+
+$value = ['count' => 15];
+pd_auto_diff($value);  // Shows diff from previous value
+
+// Clear all history
+pd_clear_history();
+
+// Clear specific location
+pd_clear_history(__DIR__ . '/script.php:42');
 ```
 
 ## Framework Integration
@@ -243,11 +376,67 @@ Output includes:
 - Stack trace (with file and line numbers)
 - Variable snapshots
 
-### SQL Detection
+### SQL Detection ✨ Automatic
+
+SQL queries are automatically detected and beautified:
 
 ```php
+// Just dump SQL - no special function needed!
 $sql = "SELECT u.id, u.name FROM users u WHERE u.status = 'active' ORDER BY u.created_at DESC";
-pd($sql);  // Auto-detected as SQL and beautified
+pd($sql);  // Auto-detected as SQL and formatted!
+
+// Complex queries work too
+$complexSql = "SELECT 
+    u.id,
+    u.name,
+    o.id as order_id,
+    o.total
+FROM users u
+INNER JOIN orders o ON u.id = o.user_id
+WHERE u.status = 'active'
+ORDER BY o.created_at DESC";
+pd($complexSql);
+
+// Inside arrays
+$data = [
+    'user_query' => "SELECT * FROM users WHERE id = ?",
+    'order_query' => "SELECT * FROM orders WHERE user_id = ?",
+];
+pd($data);  // All SQL strings auto-detected
+```
+
+Features:
+- Automatic detection of SELECT, INSERT, UPDATE, DELETE queries
+- Syntax highlighting (keywords, strings, numbers)
+- Proper indentation and formatting
+- Works seamlessly in both CLI and Web environments
+- No configuration needed - works out of the box!
+
+For specialized SQL operations (with bindings, EXPLAIN, etc.), use `pd_sql()`:
+
+```php
+$sql = "SELECT * FROM users WHERE id = ? AND status = ?";
+$bindings = [123, 'active'];
+pd_sql($sql, $bindings, $pdo);  // With PDO connection for EXPLAIN
+```
+
+### JSON Auto-Detection ✨
+
+JSON strings can be automatically detected and formatted using `dumpj()` or the `autoDetectJson` option:
+
+```php
+$jsonString = '{"users":[{"id":1,"name":"Alice"}]}';
+dumpj($jsonString);  // Auto-detected as JSON
+
+// Or with manual option
+pd($jsonString, ['autoDetectJson' => true]);
+
+// Works in arrays too
+$apiResponse = [
+    'user_data' => '{"id":1,"name":"Bob"}',
+    'config' => '{"theme":"dark","language":"zh"}',
+];
+pd($apiResponse, ['autoDetectJson' => true]);
 ```
 
 ### Diff Comparison
