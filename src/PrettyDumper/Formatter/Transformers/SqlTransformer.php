@@ -59,47 +59,22 @@ class SqlTransformer
         if (!empty($bindings)) {
             $sql = $this->replaceBindings($sql, $bindings);
         }
+        return $this->uppercaseKeywords($sql);
+    }
 
-        // Normalize whitespace
-        $sql = preg_replace('/\s+/', ' ', $sql);
-        $sql = trim($sql);
-
-        // Add line breaks before major keywords
-        $majorKeywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN',
-                         'INNER JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'UNION',
-                         'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM'];
-
-        foreach ($majorKeywords as $keyword) {
-            $sql = preg_replace('/\b' . preg_quote($keyword, '/') . '\b/i', PHP_EOL . strtoupper($keyword), $sql);
+    /**
+     * Convert SQL keywords to uppercase while preserving original formatting.
+     */
+    private function uppercaseKeywords(string $sql): string
+    {
+        foreach (self::KEYWORDS as $keyword) {
+            $sql = preg_replace(
+                '/\b' . preg_quote($keyword, '/') . '\b/i',
+                strtoupper($keyword),
+                $sql
+            );
         }
-
-        // Add line breaks after commas in SELECT
-        $sql = preg_replace('/,(?=[^()]*(?:\(|$))/', ",\n    ", $sql);
-
-        // Clean up extra whitespace
-        $lines = explode("\n", $sql);
-        $formatted = [];
-        $indent = 0;
-
-        foreach ($lines as $line) {
-            $line = trim($line);
-            if (empty($line)) {
-                continue;
-            }
-
-            // Adjust indent
-            if (preg_match('/^(FROM|WHERE|ORDER BY|GROUP BY|HAVING|LIMIT|UNION)/', $line)) {
-                $indent = 0;
-            } elseif (preg_match('/^(JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|AND|OR)/', $line)) {
-                $indent = 1;
-            } elseif (preg_match('/^(SELECT|INSERT|UPDATE|DELETE)/', $line)) {
-                $indent = 0;
-            }
-
-            $formatted[] = str_repeat('  ', $indent) . $line;
-        }
-
-        return implode("\n", $formatted);
+        return $sql;
     }
 
     /**
